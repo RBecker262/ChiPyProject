@@ -27,15 +27,17 @@ def search_dictionary(indict):
     keylist = list(indict.keys())
 
     if 'game_data_directory' in keylist:
+        # print('Keys where GDD found...' + str(keylist))
         print('away: ' + indict["away_code"])
         print('home: ' + indict["home_code"])
-        print('directory ' + indict[u'game_day_directory'])
-        # entry1 = {"game_code": indict['game_day_directory'][15:],
-        #            "data": {"away_code": indict['away_code'],
-        #                    "home_code": indict['home_code'],
-        #                    "game_dir": indict['game_day_directory']}}
+        print('directory: ' + indict['game_data_directory'])
+        gcstart = len(indict['game_data_directory']) - 15
+        entry1 = {"game_code": indict['game_data_directory'][gcstart:],
+                  "data": {"away_code": indict['away_code'],
+                           "home_code": indict['home_code'],
+                           "game_dir": indict['game_data_directory']}}
 
-        return indict
+        return entry1
 
     # loop thru each dictionary key at the current level
     for dictkey in keylist:
