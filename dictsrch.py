@@ -1,91 +1,73 @@
 """
-Parse Dictionary Function Library
+MLB Gameday Retrieval - Search Dictionary
 Author: Robert Becker
-Date: April 17, 2017
-Purpose: Recursive functions used to find player data in json dictionary
+Date: May 13, 2017
+Purpose: Recursive functions used to find desired data in json dictionary
 """
 
 
 import logging
 
 
-def search_dictionary(indict):
+def search_dictionary(indict, resultdict):
     """
     Input parameters:
-    indict  = dictionary to be parsed
+    indict     = dictionary to be parsed
+    resultdict = result dictionary, starts blank and updated for each new entry
 
     Function loops through dictionary keys and examines values
     If function finds a nested dictionary, call itself to parse next level
     If function finds a list, call listlevel to parse the list
-    If function finds a normal value, it writes output file if desired
-    As soon as player data is found return to previous recursion level
+    As soon as game data is found return to previous recursion level
     """
 
     logger = logging.getLogger(__name__)
 
-    # get dictionary key list from current level and return if it's our player
+    # get dictionary key list from and create entry in result dictionary
     keylist = list(indict.keys())
 
     if 'game_data_directory' in keylist:
         # print('Keys where GDD found...' + str(keylist))
-        print('away: ' + indict["away_code"])
-        print('home: ' + indict["home_code"])
-        print('directory: ' + indict['game_data_directory'])
         gcstart = len(indict['game_data_directory']) - 15
-        entry1 = {"game_code": indict['game_data_directory'][gcstart:],
-                  "data": {"away_code": indict['away_code'],
-                           "home_code": indict['home_code'],
-                           "game_dir": indict['game_data_directory']}}
+        gamecode = indict['game_data_directory'][gcstart:]
+        entry = {gamecode:
+                 {"directory": indict['game_data_directory'],
+                  "away_code": indict['away_code'],
+                  "home_code": indict['home_code']}}
+        resultdict.update(entry)
+        logger.debug(gamecode + " entry added to result dictionary")
 
-        return entry1
+        return resultdict
 
-    # loop thru each dictionary key at the current level
+    # loop thru each dictionary entry at the current level
     for dictkey in keylist:
 
         # test if current value is a nested dictionary
         if isinstance(indict[dictkey], dict):
 
-            # recursive call to parse nested dictionary, increase level #
-            logger.debug('Recursive call to search for key: ' + dictkey)
-
-            myplayerdata = search_dictionary(indict[dictkey])
-
-            logger.debug('Returned from recursive call for key: ' + dictkey)
-
-            # if player data found, return data to previous recursion level
-            if myplayerdata:
-                return myplayerdata
+            # recursive call to search nested dictionary
+            resultdict = search_dictionary(indict[dictkey], resultdict)
 
         # test if current value is a list
         elif isinstance(indict[dictkey], list):
 
-            # call function to search list, level stays same
-            logger.debug('Call search_list for dictionary key: ' + dictkey)
+            # call function to search list
+            resultdict = search_list(indict[dictkey], resultdict)
 
-            myplayerdata = search_list(indict[dictkey])
-
-            logger.debug('Returned from parsing list for key: ' + dictkey)
-
-            # If player data found, return data to previous recursion level
-            if myplayerdata:
-                return myplayerdata
-
-    # return empty dictionary if nothing found within this level
-    return {}
+    # return whatever is in result dicionary at end of this dictionary level
+    return resultdict
 
 
-def search_list(inlist):
+def search_list(inlist, resultdict):
     """
     Input parameters:
-    inlist  = list to be parsed
+    inlist     = list to be parsed
+    resultdict = result dictionary, starts blank and updated for each new entry
 
     Function loops through a list and examines list entries
     If function finds a nested dictionary, it calls dictlevel
     If function finds a list, it calls itself to parse the list
-    As soon as player data is found return to previous recursion level
     """
-
-    logger = logging.getLogger(__name__)
 
     # loop thru each list entry at the current level
     for listentry in inlist:
@@ -93,28 +75,14 @@ def search_list(inlist):
         # test if current list entry is a nested dictionary
         if isinstance(listentry, dict):
 
-            # recursive call to parse nested dictionary, increase level #
-            logger.debug('Recursive call search_dictionary from search_list')
-
-            myplayerdata = search_dictionary(listentry)
-
-            # if player data found, return data to previous recursion level
-            if myplayerdata:
-                return myplayerdata
+            # recursive call to search nested dictionary
+            resultdict = search_dictionary(listentry, resultdict)
 
         # test if current entry is a list
         elif isinstance(listentry, list):
 
-            # recursive call to search nested list, level stays the same
-            logger.debug('Recursive call to listlevel function')
+            # recursive call to search nested list
+            resultdict = search_list(listentry, resultdict)
 
-            myplayerdata = search_list(listentry)
-
-            logger.debug('Returned from recursive call to search_list')
-
-            # if player data found, return data to previous recursion level
-            if myplayerdata:
-                return myplayerdata
-
-    # return empty dictionary if nothing found within this level
-    return {}
+    # return whatever is in result dicionary at end of this list
+    return resultdict

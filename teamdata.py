@@ -95,14 +95,14 @@ def load_dictionary(jsonurl):
         raise LoadDictionaryError(errmsg)
 
 
-def print_team_info(teamdict):
+def print_gameday_info(gamesdict):
 
-    # get list of dictionary keys from returned player data
-    keylist = list(teamdict.keys())
+    # get key list for today's games
+    keylist = list(gamesdict.keys())
 
-    # print heading for player followed by his boxscore data
+    # print entries for all scheduled games
     for dictkey in keylist:
-        print(dictkey + " = " + str(teamdict[dictkey]))
+        print(dictkey + " = " + str(gamesdict[dictkey]))
 
 
 def main():
@@ -125,17 +125,18 @@ def main():
     except LoadDictionaryError:
         return 20
 
-    # call function to extract player data from dictionary and print it
-    logger.info('Searching dictionary for today''schedules')
+    # call function to search for team schedules
+    logger.info("Searching dictionary for today's schedules")
 
-    schedules = dictsrch.search_dictionary(jsondict)
+    resultdict = {}
+    schedule = dictsrch.search_dictionary(jsondict, resultdict)
 
-    print_team_info(schedules)
+    print_gameday_info(schedule)
 
     return 0
 
 
 if __name__ == '__main__':
     cc = main()
-    logger.info('parsdict.py completion code: ' + str(cc))
+    logger.info('teamdata.py completion code: ' + str(cc))
     sys.exit(cc)
