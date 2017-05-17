@@ -1,8 +1,7 @@
-"""
-dailySched.py
+"""playerTeam.py
 Author: Robert Becker
-Date: May 13, 2017
-Purpose: Parse the daily master scoreboard to extract MLB schedule for the day
+Date: May 16, 2017
+Purpose: use daily schedule to extract player and team data from boxscore
 
 Read config file to get location of the master scoreboard
 Load dictionary into memory
@@ -20,12 +19,11 @@ import requests
 
 
 # setup global variables
-LOGGING_INI = 'dailySched_logging.ini'
-DAILY_SCHEDULE = 'Data/schedule_YYYYMMDD.json'
-URL1 = 'http://gd2.mlb.com/components/game/mlb/year_YYYY'
-URL2 = '/month_MM'
-URL3 = '/day_DD'
-URL4 = '/master_scoreboard.json'
+LOGGING_INI = 'playerTeam_logging.ini'
+DAILY_SCHEDULE = '/Data/schedule_YYYYMMDD.json'
+PLAYER_MSTR = 'Data/playerMaster.json'
+TEAM_MSTR = 'Data/teamMaster.json'
+
 
 # setup logging and log initial message
 logging.config.fileConfig(LOGGING_INI)
@@ -67,10 +65,10 @@ def determine_filenames(arg):
         mm = datetime.date.today().strftime("%m")
         dd = datetime.date.today().strftime("%d")
 
-    urly = URL1.replace('YYYY', yyyy)
-    urlm = URL2.replace('MM', mm)
-    urld = URL3.replace('DD', dd)
-    url_input = urly + urlm + urld + URL4
+    # urly = URL1.replace('YYYY', yyyy)
+    # urlm = URL2.replace('MM', mm)
+    # urld = URL3.replace('DD', dd)
+    url_input = 'update this'
 
     sched_output = DAILY_SCHEDULE.replace('YYYYMMDD', yyyy + mm + dd)
 
