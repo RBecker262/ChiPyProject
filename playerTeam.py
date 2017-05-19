@@ -1,4 +1,5 @@
-"""playerTeam.py
+"""
+playerTeam.py
 Author: Robert Becker
 Date: May 16, 2017
 Purpose: use daily schedule to extract player and team data from boxscore
@@ -20,15 +21,19 @@ import requests
 
 # setup global variables
 LOGGING_INI = 'playerTeam_logging.ini'
-DAILY_SCHEDULE = '/Data/schedule_YYYYMMDD.json'
-PLAYER_MSTR = 'Data/playerMaster.json'
-TEAM_MSTR = 'Data/teamMaster.json'
+DAILY_SCHEDULE = 'Data/schedule_YYYYMMDD.json'
+PLAYER_MSTR_I = 'Data/playerMaster.json'
+PLAYER_MSTR_O = 'Data/playerMaster_YYYYMMDD.json'
+TEAM_MSTR_I = 'Data/teamMaster.json'
+TEAM_MSTR_O = 'Data/teamMaster_YYYYMMDD.json'
+WEBSITE = 'http://gd2.mlb.com'
+BOXSCORE = '/boxscore.json'
 
 
 # setup logging and log initial message
 logging.config.fileConfig(LOGGING_INI)
 logger = logging.getLogger(__name__)
-logger.info('Executing script: dailySched.py')
+logger.info('Executing script: teamPlayer.py')
 
 
 class LoadDictionaryError(ValueError):
@@ -44,12 +49,12 @@ def get_command_arguments():
     parser.add_argument(
         '-d',
         '--date',
-        help='Date of daily schedule to build - mm-dd-yyyy format',
+        help='Date of daily schedule for input - mm-dd-yyyy format',
         dest='game_date',
         type=str)
 
     argue = parser.parse_args()
-    logger.info('dailySched.py command arguments: ' + str(argue.game_date))
+    logger.info('teamPlayer.py command arguments: ' + str(argue.game_date))
 
     return argue
 
@@ -65,33 +70,62 @@ def determine_filenames(arg):
         mm = datetime.date.today().strftime("%m")
         dd = datetime.date.today().strftime("%d")
 
-    # urly = URL1.replace('YYYY', yyyy)
-    # urlm = URL2.replace('MM', mm)
-    # urld = URL3.replace('DD', dd)
-    url_input = 'update this'
+    schedule_input = DAILY_SCHEDULE.replace('YYYYMMDD', yyyy + mm + dd)
+    player_output = PLAYER_MSTR_O.replace('YYYYMMDD', yyyy + mm + dd)
+    team_output = TEAM_MSTR_O.replace('YYYYMMDD', yyyy + mm + dd)
 
-    sched_output = DAILY_SCHEDULE.replace('YYYYMMDD', yyyy + mm + dd)
+    logger.info('Input dailySched dictionary location: ' + schedule_input)
+    logger.info('Output player master file: ' + player_output)
+    logger.info('Output team master file: ' + team_output)
 
-    logger.info('Input dictionary location: ' + url_input)
-    logger.info('Output file: ' + sched_output)
-
-    return (url_input, sched_output)
+    return (schedule_input, player_output, team_output)
 
 
-def load_dictionary(jsonurl):
+def load_daily_schedule(schedule_in):
+
+    logger.info('Loading dailySchedule dictionary')
 
     try:
-        jsonresp = requests.get(jsonurl)
-        dictdata = json.loads(jsonresp.text)
-        return dictdata
+        with open(schedule_in) as schedulefile:
+            return json.load(schedulefile)
     except Exception as e:
-        errmsg = 'Error loading dictionary from url. . .'
+        errmsg = 'Error loading dailySchedule dictionary. . .'
         logger.critical(errmsg)
         logger.exception(e)
         raise LoadDictionaryError(errmsg)
 
 
-def search_dictionary(indict, resultdict):
+def process_schedule_entries(sched_dict):
+
+    keylist = list(sched_dict)
+    daily_player_dict = {}
+
+    for key in keylist:
+
+        boxscoreurl = WEBSITE + sched_dict[key]["directory"] + BOXSCORE
+        logger.info('Loading daily boxscore dictionary from: ' + boxscoreurl)
+
+        try:
+            boxresp = requests.get(boxscoreurl)
+            boxscore_dict = json.loads(boxresp.text)
+        except Exception as e:
+            errmsg = 'Error loading boxscore dictionary. . .'
+            logger.critical(errmsg)
+            logger.exception(e)
+            raise LoadDictionaryError(errmsg)
+
+        home = sched_dict[key]["home_code"]
+        away = sched_dict[key]["away_code"]
+        resultdict = {}
+
+        entry = search_dictionary(boxscore_dict, home, away, None, resultdict)
+
+        daily_player_dict.update(entry)
+
+    return daily_player_dict
+
+
+def search_dictionary(indict, hometeam, awayteam, team_code, resultdict):
     """
     Input parameters:
     indict     = dictionary to be parsed
@@ -106,31 +140,48 @@ def search_dictionary(indict, resultdict):
     # get dictionary key list from and create entry in result dictionary
     keylist = list(indict.keys())
 
-    if 'game_data_directory' in keylist:
+    if 'team_flag' in keylist:
+        if indict['team_flag'] == 'home':
+            team_code = hometeam
+        else:
+            team_code = awayteam
+
+    if 'name' in keylist:
         # print('Keys where GDD found...' + str(keylist))
-        gcstart = len(indict['game_data_directory']) - 15
-        gamecode = indict['game_data_directory'][gcstart:]
-        entry = {gamecode:
-                 {"directory": indict['game_data_directory'],
-                  "away_code": indict['away_code'],
-                  "home_code": indict['home_code']}}
+        if indict['pos'] == 'P':
+            position = 'P'
+        else:
+            position = 'B'
+        entry = {indict['name']:
+                 {'team_code': team_code,
+                  'position': indict['pos'],
+                  'point_pos': position,
+                  'full_name': indict['name_display_first_last']}}
         resultdict.update(entry)
-        logger.debug(gamecode + " entry added to result dictionary")
+        logger.debug(indict['name'] + " entry added to result dictionary")
 
         return resultdict
 
     # for each dictionary value call appropriate function based on type
     for dictkey in keylist:
         if isinstance(indict[dictkey], dict):
-            resultdict = search_dictionary(indict[dictkey], resultdict)
+            resultdict = search_dictionary(indict[dictkey],
+                                           hometeam,
+                                           awayteam,
+                                           team_code,
+                                           resultdict)
         elif isinstance(indict[dictkey], list):
-            resultdict = search_list(indict[dictkey], resultdict)
+            resultdict = search_list(indict[dictkey],
+                                     hometeam,
+                                     awayteam,
+                                     team_code,
+                                     resultdict)
 
     # return whatever is in result dicionary at end of this dictionary level
     return resultdict
 
 
-def search_list(inlist, resultdict):
+def search_list(inlist, hometeam, awayteam, team_code, resultdict):
     """
     Input parameters:
     inlist     = list to be parsed
@@ -144,9 +195,17 @@ def search_list(inlist, resultdict):
     # for each list value call appropriate function based on type
     for listentry in inlist:
         if isinstance(listentry, dict):
-            resultdict = search_dictionary(listentry, resultdict)
+            resultdict = search_dictionary(listentry,
+                                           hometeam,
+                                           awayteam,
+                                           team_code,
+                                           resultdict)
         elif isinstance(listentry, list):
-            resultdict = search_list(listentry, resultdict)
+            resultdict = search_list(listentry,
+                                     hometeam,
+                                     awayteam,
+                                     team_code,
+                                     resultdict)
 
     # return whatever is in result dicionary at end of this list
     return resultdict
@@ -157,23 +216,29 @@ def main():
     args = get_command_arguments()
 
     io = determine_filenames(args)
-    jsonloc = io[0]
-    schedule_out = io[1]
+    schedule_in = io[0]
+    player_out = io[1]
+    # team_out = io[2]
 
-    # load json dictionary into memory
+    # load daily schedule dictionary into memory
     try:
-        jsondict = load_dictionary(jsonloc)
+        schedule_dict = load_daily_schedule(schedule_in)
     except LoadDictionaryError:
         return 20
 
-    # call function to search for team schedules
-    logger.info('Searching scoreboard dictionary for MLB daily schedule')
+    # use daily schedule to extract from each associated boxscore dictionary
+    try:
+        team_master_dict = process_schedule_entries(schedule_dict)
+    except LoadDictionaryError:
+        return 21
 
-    resultdict = {}
-    schedule = search_dictionary(jsondict, resultdict)
+    with open(PLAYER_MSTR_I, 'r') as playerMaster:
+        player_mstr_dict = json.load(playerMaster)
 
-    with open(schedule_out, 'w') as schedulefile:
-        json.dump(schedule, schedulefile,
+    player_mstr_dict.update(team_master_dict)
+
+    with open(player_out, 'w') as playerfile:
+        json.dump(player_mstr_dict, playerfile,
                   sort_keys=True, indent=4, ensure_ascii=False)
 
     return 0
@@ -181,5 +246,5 @@ def main():
 
 if __name__ == '__main__':
     cc = main()
-    logger.info('dailySched.py completion code: ' + str(cc))
+    logger.info('teamPlayer.py completion code: ' + str(cc))
     sys.exit(cc)
