@@ -153,12 +153,12 @@ def search_dictionary(indict, hometeam, awayteam, team_code, resultdict):
         else:
             position = 'B'
         entry = {indict['name']:
-                 {'team_code': team_code,
+                 {'full_name': indict['name_display_first_last'],
+                  'team_code': team_code,
                   'position': indict['pos'],
-                  'point_pos': position,
-                  'full_name': indict['name_display_first_last']}}
+                  'point_pos': position}}
         resultdict.update(entry)
-        logger.debug(indict['name'] + " entry added to result dictionary")
+        logger.debug(indict['name'] + " added to player result dictionary")
 
         return resultdict
 
@@ -222,20 +222,21 @@ def main():
 
     # load daily schedule dictionary into memory
     try:
-        schedule_dict = load_daily_schedule(schedule_in)
+        todays_schedule_dict = load_daily_schedule(schedule_in)
     except LoadDictionaryError:
         return 20
 
     # use daily schedule to extract from each associated boxscore dictionary
     try:
-        team_master_dict = process_schedule_entries(schedule_dict)
+        todays_player_dict = process_schedule_entries(todays_schedule_dict)
     except LoadDictionaryError:
         return 21
 
+    # update player master dictionary with latest round of updates
     with open(PLAYER_MSTR_I, 'r') as playerMaster:
         player_mstr_dict = json.load(playerMaster)
 
-    player_mstr_dict.update(team_master_dict)
+    player_mstr_dict.update(todays_player_dict)
 
     with open(player_out, 'w') as playerfile:
         json.dump(player_mstr_dict, playerfile,

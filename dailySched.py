@@ -159,12 +159,12 @@ def main():
     args = get_command_arguments()
 
     io = determine_filenames(args)
-    jsonloc = io[0]
+    scoreboard_loc = io[0]
     schedule_out = io[1]
 
     # load json dictionary into memory
     try:
-        jsondict = load_dictionary(jsonloc)
+        scoreboard_dict = load_dictionary(scoreboard_loc)
     except LoadDictionaryError:
         return 20
 
@@ -172,10 +172,10 @@ def main():
     logger.info('Searching scoreboard dictionary for MLB daily schedule')
 
     resultdict = {}
-    schedule = search_dictionary(jsondict, resultdict)
+    schedule_dict = search_dictionary(scoreboard_dict, resultdict)
 
     with open(schedule_out, 'w') as schedulefile:
-        json.dump(schedule, schedulefile,
+        json.dump(schedule_dict, schedulefile,
                   sort_keys=True, indent=4, ensure_ascii=False)
 
     return 0
