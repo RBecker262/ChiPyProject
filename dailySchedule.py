@@ -1,12 +1,13 @@
 """
-dailySched.py
+dailySchedule.py
 Author: Robert Becker
 Date: May 13, 2017
 Purpose: Parse the daily master scoreboard to extract MLB schedule for the day
 
-Read config file to get location of the master scoreboard
-Load dictionary into memory
-Call search_dictionary to get directory information for all MLB games today
+Setup file/url names based on optional date arugment (mm-dd-yyyy), or today
+Load master scoreboard dictionary into memory
+Search thru dictionary to get directory information for all MLB games for date
+Create output file with all schedules for the given date
 """
 
 
@@ -20,21 +21,26 @@ import requests
 
 
 # setup global variables
-LOGGING_INI = 'dailySched_logging.ini'
+SCRIPT = 'dailySchedule.py'
+LOGGING_INI = 'dailySchedule_logging.ini'
 DAILY_SCHEDULE = 'Data/schedule_YYYYMMDD.json'
 URL1 = 'http://gd2.mlb.com/components/game/mlb/year_YYYY'
 URL2 = '/month_MM'
 URL3 = '/day_DD'
 URL4 = '/master_scoreboard.json'
 
-# setup logging and log initial message
-logging.config.fileConfig(LOGGING_INI)
-logger = logging.getLogger(__name__)
-logger.info('Executing script: dailySched.py')
-
 
 class LoadDictionaryError(ValueError):
     pass
+
+
+def init_logger():
+    """
+    initialize global variable logger and set script name
+    """
+
+    global logger
+    logger = logging.getLogger(SCRIPT)
 
 
 def get_command_arguments():
@@ -51,15 +57,14 @@ def get_command_arguments():
         type=str)
 
     argue = parser.parse_args()
-    logger.info('dailySched.py command arguments: ' + str(argue.game_date))
+    logger.info('Command arguments: ' + str(argue.game_date))
 
     return argue
 
 
 def determine_filenames(game_date=None):
     """
-    :param date: date of the game of form "MM-DD-YYYY"
-
+    :param date: date of the games in format "MM-DD-YYYY"
     """
 
     if game_date is not None:
@@ -71,6 +76,7 @@ def determine_filenames(game_date=None):
         mm = datetime.date.today().strftime("%m")
         dd = datetime.date.today().strftime("%d")
 
+    mmddyyyy = mm + '-' + dd + '-' + yyyy
     urly = URL1.replace('YYYY', yyyy)
     urlm = URL2.replace('MM', mm)
     urld = URL3.replace('DD', dd)
@@ -78,13 +84,16 @@ def determine_filenames(game_date=None):
 
     sched_output = DAILY_SCHEDULE.replace('YYYYMMDD', yyyy + mm + dd)
 
-    logger.info('Input dictionary location: ' + url_input)
-    logger.info('Output file: ' + sched_output)
+    logger.info('Master Scoreboard dictionary location: ' + url_input)
+    logger.info('Daily Schedule output file: ' + sched_output)
 
-    return (url_input, sched_output)
+    return (url_input, sched_output, mmddyyyy)
 
 
 def load_dictionary(jsonurl):
+    """
+    :param jsonurl: url of json dictionary to load into memory
+    """
 
     try:
         jsonresp = requests.get(jsonurl)
@@ -99,25 +108,23 @@ def load_dictionary(jsonurl):
 
 def search_dictionary(indict, resultdict):
     """
-    Input parameters:
-    indict     = dictionary to be parsed
-    resultdict = result dictionary, starts blank and updated for each new entry
+    :param indict:     dictionary to be parsed
+    :param resultdict: result dictionary, starts blank, updated for each entry
 
     Function loops through dictionary keys and examines values
-    If function finds a nested dictionary, call itself to parse next level
-    If function finds a list, call listlevel to parse the list
+    If function finds nested dictionary, call itself to parse next dict level
+    If function finds list, call function to parse the next list level
     As soon as game data is found return to previous recursion level
     """
 
-    # get dictionary key list from and create entry in result dictionary
     keylist = list(indict.keys())
 
+    # if directory found, create entry in result dict and return to prev level
     if 'game_data_directory' in keylist:
-        # print('Keys where GDD found...' + str(keylist))
         gcstart = len(indict['game_data_directory']) - 15
         gamecode = indict['game_data_directory'][gcstart:]
         entry = {gamecode:
-                 {"directory": indict['game_data_directory'],
+                 {"directory": indict['game_data_directory'] + '/',
                   "away_code": indict['away_code'],
                   "home_code": indict['home_code']}}
         resultdict.update(entry)
@@ -138,13 +145,13 @@ def search_dictionary(indict, resultdict):
 
 def search_list(inlist, resultdict):
     """
-    Input parameters:
-    inlist     = list to be parsed
-    resultdict = result dictionary, starts blank and updated for each new entry
+    :param inlist:     list to be parsed
+    :param resultdict: result dictionary, starts blank, updated for each entry
 
     Function loops through a list and examines list entries
-    If function finds a nested dictionary, it calls dictlevel
-    If function finds a list, it calls itself to parse the list
+
+    If function finds nested dictionary, call function to parse next dict level
+    If function finds list, call itself to parse the next list level
     """
 
     # for each list value call appropriate function based on type
@@ -158,26 +165,41 @@ def search_list(inlist, resultdict):
     return resultdict
 
 
-def main():
+def invoke_dailySchedule_as_sub(gamedate=None):
+    """
+    :param gamedate: date of the games in format "MM-DD-YYYY"
 
-    args = get_command_arguments()
+    This routine is invoked when running as imported function vs main driver
+    """
 
-    io = determine_filenames(args.game_date)
+    init_logger()
+    logger.info('Executing script dailySchedule.py as sub-function')
+    rc = main(gamedate)
+
+    return rc
+
+
+def main(gamedate=None):
+
+    # setup master scoreboard input and daily schedule output
+    io = determine_filenames(gamedate)
     scoreboard_loc = io[0]
     schedule_out = io[1]
+    date_of_games = io[2]
 
-    # load json dictionary into memory
+    # load master scoreboard dictionary into memory
     try:
         scoreboard_dict = load_dictionary(scoreboard_loc)
     except LoadDictionaryError:
         return 20
 
-    # call function to search for team schedules
-    logger.info('Searching scoreboard dictionary for MLB daily schedule')
+    logger.info('Creating Daily Schedule file for date: ' + date_of_games)
 
+    # initilize result and call function to search for team schedules
     resultdict = {}
     schedule_dict = search_dictionary(scoreboard_dict, resultdict)
 
+    # write all games scheduled to daily schedule output file
     with open(schedule_out, 'w') as schedulefile:
         json.dump(schedule_dict, schedulefile,
                   sort_keys=True, indent=4, ensure_ascii=False)
@@ -186,6 +208,13 @@ def main():
 
 
 if __name__ == '__main__':
-    cc = main()
-    logger.info('dailySched.py completion code: ' + str(cc))
+    logging.config.fileConfig(LOGGING_INI)
+    init_logger()
+    logger.info('Executing script as main function')
+
+    args = get_command_arguments()
+
+    cc = main(args.game_date)
+
+    logger.info('Completion code: ' + str(cc))
     sys.exit(cc)

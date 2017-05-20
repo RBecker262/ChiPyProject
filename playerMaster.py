@@ -1,12 +1,13 @@
 """
-playerTeam.py
+playerMaster.py
 Author: Robert Becker
 Date: May 16, 2017
-Purpose: use daily schedule to extract player and team data from boxscore
+Purpose: use daily schedule to extract player data from gameday boxscore
 
-Read config file to get location of the master scoreboard
-Load dictionary into memory
-Call search_dictionary to get directory information for all MLB games today
+Setup file/url names based on optional date arugment (mm-dd-yyyy), or today
+Load daily schedule dictionary into memory
+Use schedule to search thru boxscore dictionaries to get all player info
+Update playerMaster dictionary with any new player data found
 """
 
 
@@ -20,32 +21,33 @@ import requests
 
 
 # setup global variables
-LOGGING_INI = 'playerTeam_logging.ini'
+SCRIPT = 'playerMaster.py'
+LOGGING_INI = 'playerMaster_logging.ini'
 DAILY_SCHEDULE = 'Data/schedule_YYYYMMDD.json'
 PLAYER_MSTR_I = 'Data/playerMaster.json'
 PLAYER_MSTR_O = 'Data/playerMaster_YYYYMMDD.json'
-TEAM_MSTR_I = 'Data/teamMaster.json'
-TEAM_MSTR_O = 'Data/teamMaster_YYYYMMDD.json'
-WEBSITE = 'http://gd2.mlb.com'
-BOXSCORE = '/boxscore.json'
-
-
-# setup logging and log initial message
-logging.config.fileConfig(LOGGING_INI)
-logger = logging.getLogger(__name__)
-logger.info('Executing script: teamPlayer.py')
+BOXSCORE = 'http://gd2.mlb.com/_directory_/boxscore.json'
 
 
 class LoadDictionaryError(ValueError):
     pass
 
 
-def get_command_arguments():
+def init_logger():
     """
-    --date  optional, will extract schedules for this date if provided
+    initialize global variable logger and set script name
     """
 
-    parser = argparse.ArgumentParser('Gameday schedule command line arguments')
+    global logger
+    logger = logging.getLogger(SCRIPT)
+
+
+def get_command_arguments():
+    """
+    --date  optional, will extract players found in boxscore for this date
+    """
+
+    parser = argparse.ArgumentParser('playerMaster command line arguments')
     parser.add_argument(
         '-d',
         '--date',
@@ -54,34 +56,39 @@ def get_command_arguments():
         type=str)
 
     argue = parser.parse_args()
-    logger.info('teamPlayer.py command arguments: ' + str(argue.game_date))
+    logger.info('Command arguments: ' + str(argue.game_date))
 
     return argue
 
 
-def determine_filenames(arg):
+def determine_filenames(game_date=None):
+    """
+    :param date: date of the games in format "MM-DD-YYYY"
+    """
 
-    if arg.game_date:
-        yyyy = arg.game_date[6:10]
-        mm = arg.game_date[0:2]
-        dd = arg.game_date[3:5]
+    if game_date is not None:
+        yyyy = game_date[6:10]
+        mm = game_date[0:2]
+        dd = game_date[3:5]
     else:
         yyyy = datetime.date.today().strftime("%Y")
         mm = datetime.date.today().strftime("%m")
         dd = datetime.date.today().strftime("%d")
 
+    mmddyyyy = mm + '-' + dd + '-' + yyyy
     schedule_input = DAILY_SCHEDULE.replace('YYYYMMDD', yyyy + mm + dd)
     player_output = PLAYER_MSTR_O.replace('YYYYMMDD', yyyy + mm + dd)
-    team_output = TEAM_MSTR_O.replace('YYYYMMDD', yyyy + mm + dd)
 
-    logger.info('Input dailySched dictionary location: ' + schedule_input)
-    logger.info('Output player master file: ' + player_output)
-    logger.info('Output team master file: ' + team_output)
+    logger.info('dailySched dictionary location: ' + schedule_input)
+    logger.info('Updated player dictionary location: ' + player_output)
 
-    return (schedule_input, player_output, team_output)
+    return (schedule_input, player_output, mmddyyyy)
 
 
 def load_daily_schedule(schedule_in):
+    """
+    :param schedule_in: filename for daily schedule file to load into memory
+    """
 
     logger.info('Loading dailySchedule dictionary')
 
@@ -96,30 +103,40 @@ def load_daily_schedule(schedule_in):
 
 
 def process_schedule_entries(sched_dict):
+    """
+    :param sched_dict: daily schedule file used to drive player extract process
+    """
 
+    logger.info('Applying updates to player master dictionary')
+
+    # get dailySchedule key list and start with blank result player dictionary
     keylist = list(sched_dict)
     daily_player_dict = {}
 
+    # for each key, go to boxscore for that game and exctract all player data
     for key in keylist:
 
-        boxscoreurl = WEBSITE + sched_dict[key]["directory"] + BOXSCORE
-        logger.info('Loading daily boxscore dictionary from: ' + boxscoreurl)
+        boxscoreurl = BOXSCORE.replace('/_directory_/',
+                                       sched_dict[key]["directory"])
+        logger.info('Loading boxscore dictionary: ' + boxscoreurl)
 
         try:
             boxresp = requests.get(boxscoreurl)
             boxscore_dict = json.loads(boxresp.text)
-        except Exception as e:
-            errmsg = 'Error loading boxscore dictionary. . .'
-            logger.critical(errmsg)
-            logger.exception(e)
-            raise LoadDictionaryError(errmsg)
+        except Exception:
+            errmsg = 'Boxscore dictionary not created yet for: ' + key
+            logger.warning(errmsg)
+            continue
 
+        # set home and away team codess, init player result dict for this game
         home = sched_dict[key]["home_code"]
         away = sched_dict[key]["away_code"]
         resultdict = {}
 
+        # search thru boxscore for current game and retrieve player data
         entry = search_dictionary(boxscore_dict, home, away, None, resultdict)
 
+        # use single game player extract to update overall player result dict
         daily_player_dict.update(entry)
 
     return daily_player_dict
@@ -127,27 +144,29 @@ def process_schedule_entries(sched_dict):
 
 def search_dictionary(indict, hometeam, awayteam, team_code, resultdict):
     """
-    Input parameters:
-    indict     = dictionary to be parsed
-    resultdict = result dictionary, starts blank and updated for each new entry
+    :param indict:     dictionary to be parsed
+    :param hometeam:   home team code starts as None and set once found in dict
+    :param awayteam:   away team code starts as None and set once found in dict
+    :param team_code:  set to hometeam or awayteam once team_flag is found
+    :param resultdict: result dictionary, starts blank, updated for each entry
 
     Function loops through dictionary keys and examines values
-    If function finds a nested dictionary, call itself to parse next level
-    If function finds a list, call listlevel to parse the list
-    As soon as game data is found return to previous recursion level
+    If function finds nested dictionary, call itself to parse next dict level
+    If function finds list, call function to parse the next list level
+    As soon as player data is found return result to previous recursion level
     """
 
-    # get dictionary key list from and create entry in result dictionary
     keylist = list(indict.keys())
 
+    # save team codes to pass to lower dict levels where player data resides
     if 'team_flag' in keylist:
         if indict['team_flag'] == 'home':
             team_code = hometeam
         else:
             team_code = awayteam
 
+    # if player found, create entry in result dict and return to previous level
     if 'name' in keylist:
-        # print('Keys where GDD found...' + str(keylist))
         if indict['pos'] == 'P':
             position = 'P'
         else:
@@ -183,13 +202,14 @@ def search_dictionary(indict, hometeam, awayteam, team_code, resultdict):
 
 def search_list(inlist, hometeam, awayteam, team_code, resultdict):
     """
-    Input parameters:
-    inlist     = list to be parsed
-    resultdict = result dictionary, starts blank and updated for each new entry
+    :param indict:     dictionary to be parsed
+    :param hometeam:   home team code starts as None and set once found in dict
+    :param awayteam:   away team code starts as None and set once found in dict
+    :param team_code:  set to hometeam or awayteam once team_flag is found
+    :param resultdict: result dictionary, starts blank, updated for each entry
 
-    Function loops through a list and examines list entries
-    If function finds a nested dictionary, it calls dictlevel
-    If function finds a list, it calls itself to parse the list
+    If function finds nested dictionary, call function to parse next dict level
+    If function finds list, call itself to parse the next list level
     """
 
     # for each list value call appropriate function based on type
@@ -211,26 +231,37 @@ def search_list(inlist, hometeam, awayteam, team_code, resultdict):
     return resultdict
 
 
-def main():
+def invoke_playerMaster_as_sub(gamedate=None):
+    """
+    :param gamedate: date of the games in format "MM-DD-YYYY"
 
-    args = get_command_arguments()
+    This routine is invoked when running as imported function vs main driver
+    """
 
-    io = determine_filenames(args)
+    init_logger()
+    logger.info('Executing script playerMaster.py as sub-function')
+    rc = main(gamedate)
+
+    return rc
+
+
+def main(gamedate=None):
+
+    io = determine_filenames(gamedate)
     schedule_in = io[0]
     player_out = io[1]
-    # team_out = io[2]
+    date_of_games = io[2]
 
-    # load daily schedule dictionary into memory
+    # load daily schedule dictionary into memory, must exist
     try:
         todays_schedule_dict = load_daily_schedule(schedule_in)
     except LoadDictionaryError:
         return 20
 
+    logger.info('Creating Player Master file for date: ' + date_of_games)
+
     # use daily schedule to extract from each associated boxscore dictionary
-    try:
-        todays_player_dict = process_schedule_entries(todays_schedule_dict)
-    except LoadDictionaryError:
-        return 21
+    todays_player_dict = process_schedule_entries(todays_schedule_dict)
 
     # update player master dictionary with latest round of updates
     with open(PLAYER_MSTR_I, 'r') as playerMaster:
@@ -246,6 +277,13 @@ def main():
 
 
 if __name__ == '__main__':
-    cc = main()
-    logger.info('teamPlayer.py completion code: ' + str(cc))
+    logging.config.fileConfig(LOGGING_INI)
+    init_logger()
+    logger.info('Executing script as main function')
+
+    args = get_command_arguments()
+
+    cc = main(args.game_date)
+
+    logger.info('Completion code: ' + str(cc))
     sys.exit(cc)
