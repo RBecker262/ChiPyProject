@@ -61,15 +61,15 @@ def get_command_arguments():
     return argue
 
 
-def determine_filenames(game_date=None):
+def determine_filenames(gamedate=None):
     """
-    :param date: date of the games in format "MM-DD-YYYY"
+    :param game_date: date of the games in format "MM-DD-YYYY"
     """
 
-    if game_date is not None:
-        yyyy = game_date[6:10]
-        mm = game_date[0:2]
-        dd = game_date[3:5]
+    if gamedate is not None:
+        yyyy = gamedate[6:10]
+        mm = gamedate[0:2]
+        dd = gamedate[3:5]
     else:
         yyyy = datetime.date.today().strftime("%Y")
         mm = datetime.date.today().strftime("%m")
@@ -142,12 +142,12 @@ def process_schedule_entries(sched_dict):
     return daily_player_dict
 
 
-def search_dictionary(indict, hometeam, awayteam, team_code, resultdict):
+def search_dictionary(indict, hometeam, awayteam, teamcode, resultdict):
     """
     :param indict:     dictionary to be parsed
     :param hometeam:   home team code starts as None and set once found in dict
     :param awayteam:   away team code starts as None and set once found in dict
-    :param team_code:  set to hometeam or awayteam once team_flag is found
+    :param teamcode:   set to hometeam or awayteam once team_flag is found
     :param resultdict: result dictionary, starts blank, updated for each entry
 
     Function loops through dictionary keys and examines values
@@ -161,9 +161,9 @@ def search_dictionary(indict, hometeam, awayteam, team_code, resultdict):
     # save team codes to pass to lower dict levels where player data resides
     if 'team_flag' in keylist:
         if indict['team_flag'] == 'home':
-            team_code = hometeam
+            teamcode = hometeam
         else:
-            team_code = awayteam
+            teamcode = awayteam
 
     # if player found, create entry in result dict and return to previous level
     if 'name' in keylist:
@@ -173,7 +173,7 @@ def search_dictionary(indict, hometeam, awayteam, team_code, resultdict):
             position = 'B'
         entry = {indict['name']:
                  {'full_name': indict['name_display_first_last'],
-                  'team_code': team_code,
+                  'team_code': teamcode,
                   'position': indict['pos'],
                   'point_pos': position}}
         resultdict.update(entry)
@@ -187,25 +187,25 @@ def search_dictionary(indict, hometeam, awayteam, team_code, resultdict):
             resultdict = search_dictionary(indict[dictkey],
                                            hometeam,
                                            awayteam,
-                                           team_code,
+                                           teamcode,
                                            resultdict)
         elif isinstance(indict[dictkey], list):
             resultdict = search_list(indict[dictkey],
                                      hometeam,
                                      awayteam,
-                                     team_code,
+                                     teamcode,
                                      resultdict)
 
     # return whatever is in result dicionary at end of this dictionary level
     return resultdict
 
 
-def search_list(inlist, hometeam, awayteam, team_code, resultdict):
+def search_list(inlist, hometeam, awayteam, teamcode, resultdict):
     """
     :param indict:     dictionary to be parsed
     :param hometeam:   home team code starts as None and set once found in dict
     :param awayteam:   away team code starts as None and set once found in dict
-    :param team_code:  set to hometeam or awayteam once team_flag is found
+    :param teamcode:   set to hometeam or awayteam once team_flag is found
     :param resultdict: result dictionary, starts blank, updated for each entry
 
     If function finds nested dictionary, call function to parse next dict level
@@ -218,13 +218,13 @@ def search_list(inlist, hometeam, awayteam, team_code, resultdict):
             resultdict = search_dictionary(listentry,
                                            hometeam,
                                            awayteam,
-                                           team_code,
+                                           teamcode,
                                            resultdict)
         elif isinstance(listentry, list):
             resultdict = search_list(listentry,
                                      hometeam,
                                      awayteam,
-                                     team_code,
+                                     teamcode,
                                      resultdict)
 
     # return whatever is in result dicionary at end of this list

@@ -57,9 +57,10 @@ def main(gamedate=None):
     logger = logging.getLogger(SCRIPT)
     logger.info('dailySchedule sub-function completed with code: ' + str(rc))
 
-    rc = playerMaster.invoke_playerMaster_as_sub(gamedate)
-    logger = logging.getLogger(SCRIPT)
-    logger.info('playerMaster sub-function completed with code: ' + str(rc))
+    if rc == 0:
+        rc = playerMaster.invoke_playerMaster_as_sub(gamedate)
+        logger = logging.getLogger(SCRIPT)
+        logger.info('playerMaster subfunction completed with code: ' + str(rc))
 
     return rc
 

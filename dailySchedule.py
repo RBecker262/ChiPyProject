@@ -62,15 +62,15 @@ def get_command_arguments():
     return argue
 
 
-def determine_filenames(game_date=None):
+def determine_filenames(gamedate=None):
     """
     :param date: date of the games in format "MM-DD-YYYY"
     """
 
-    if game_date is not None:
-        yyyy = game_date[6:10]
-        mm = game_date[0:2]
-        dd = game_date[3:5]
+    if gamedate is not None:
+        yyyy = gamedate[6:10]
+        mm = gamedate[0:2]
+        dd = gamedate[3:5]
     else:
         yyyy = datetime.date.today().strftime("%Y")
         mm = datetime.date.today().strftime("%m")
@@ -90,19 +90,19 @@ def determine_filenames(game_date=None):
     return (url_input, sched_output, mmddyyyy)
 
 
-def load_dictionary(jsonurl):
+def load_scoreboard_dictionary(scoreboardurl, gamedate):
     """
-    :param jsonurl: url of json dictionary to load into memory
+    :param scoreboardurl: url of json dictionary to load into memory
+    :param gamedate:      date of MLB games used to extract schedules
     """
 
     try:
-        jsonresp = requests.get(jsonurl)
-        dictdata = json.loads(jsonresp.text)
-        return dictdata
-    except Exception as e:
-        errmsg = 'Error loading dictionary from url. . .'
-        logger.critical(errmsg)
-        logger.exception(e)
+        scoreboardresp = requests.get(scoreboardurl)
+        scoreboarddata = json.loads(scoreboardresp.text)
+        return scoreboarddata
+    except Exception:
+        errmsg = 'Master Scoreboard dictionary not created for: ' + gamedate
+        logger.warning(errmsg)
         raise LoadDictionaryError(errmsg)
 
 
@@ -189,7 +189,8 @@ def main(gamedate=None):
 
     # load master scoreboard dictionary into memory
     try:
-        scoreboard_dict = load_dictionary(scoreboard_loc)
+        scoreboard_dict = load_scoreboard_dictionary(scoreboard_loc,
+                                                     date_of_games)
     except LoadDictionaryError:
         return 20
 
