@@ -56,12 +56,16 @@ def get_command_arguments():
     return argue
 
 
-def determine_filenames(arg):
+def determine_filenames(game_date=None):
+    """
+    :param date: date of the game of form "MM-DD-YYYY"
 
-    if arg.game_date:
-        yyyy = arg.game_date[6:10]
-        mm = arg.game_date[0:2]
-        dd = arg.game_date[3:5]
+    """
+
+    if game_date is not None:
+        yyyy = game_date[6:10]
+        mm = game_date[0:2]
+        dd = game_date[3:5]
     else:
         yyyy = datetime.date.today().strftime("%Y")
         mm = datetime.date.today().strftime("%m")
@@ -158,7 +162,7 @@ def main():
 
     args = get_command_arguments()
 
-    io = determine_filenames(args)
+    io = determine_filenames(args.game_date)
     scoreboard_loc = io[0]
     schedule_out = io[1]
 
