@@ -16,6 +16,7 @@ import logging
 import logging.config
 import dailySchedule
 import playerMaster
+import teamMaster
 
 
 # setup global variables
@@ -61,6 +62,10 @@ def main(gamedate=None):
         rc = playerMaster.invoke_playerMaster_as_sub(gamedate)
         logger = logging.getLogger(SCRIPT)
         logger.info('playerMaster subfunction completed with code: ' + str(rc))
+
+        rc = teamMaster.invoke_teamMaster_as_sub(gamedate)
+        logger = logging.getLogger(SCRIPT)
+        logger.info('teamMaster subfunction completed with code: ' + str(rc))
 
     return rc
 
