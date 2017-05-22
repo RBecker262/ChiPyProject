@@ -12,6 +12,7 @@ Update playerMaster dictionary with any new player data found
 
 
 import sys
+import shutil
 import argparse
 import logging
 import logging.config
@@ -102,7 +103,7 @@ def load_daily_schedule(schedule_in):
         raise LoadDictionaryError(errmsg)
 
 
-def process_schedule_entries(sched_dict):
+def process_schedule(sched_dict):
     """
     :param sched_dict: daily schedule file used to drive player extract process
     """
@@ -261,7 +262,7 @@ def main(gamedate=None):
     logger.info('Creating Player Master file for date: ' + date_of_games)
 
     # use daily schedule to extract from each associated boxscore dictionary
-    todays_player_dict = process_schedule_entries(todays_schedule_dict)
+    todays_player_dict = process_schedule(todays_schedule_dict)
 
     # update player master dictionary with latest round of updates
     with open(PLAYER_MSTR_I, 'r') as playerMaster:
@@ -272,6 +273,8 @@ def main(gamedate=None):
     with open(player_out, 'w') as playerfile:
         json.dump(player_mstr_dict, playerfile,
                   sort_keys=True, indent=4, ensure_ascii=False)
+
+    shutil.copy(player_out, PLAYER_MSTR_I)
 
     return 0
 
