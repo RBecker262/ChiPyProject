@@ -117,8 +117,14 @@ def process_schedule(sched_dict):
     # for each key, go to boxscore for that game and exctract all player data
     for key in keylist:
 
-        boxscoreurl = BOXSCORE.replace('/_directory_/',
-                                       sched_dict[key]["directory"])
+        # set home and away team codes, game directory and resultdict variables
+        home = sched_dict[key]['home_code']
+        away = sched_dict[key]['away_code']
+        game_directory = sched_dict[key]['directory']
+        resultdict = {}
+
+        # load the boxscore dictionary based on current game directory
+        boxscoreurl = BOXSCORE.replace('/_directory_/', game_directory)
         logger.info('Loading boxscore dictionary: ' + boxscoreurl)
 
         try:
@@ -129,17 +135,13 @@ def process_schedule(sched_dict):
             logger.warning(errmsg)
             continue
 
-        # set home and away team codess, init player result dict for this game
-        home = sched_dict[key]["home_code"]
-        away = sched_dict[key]["away_code"]
-        resultdict = {}
-
         # search thru boxscore for current game and retrieve player data
         entry = search_dictionary(boxscore_dict, home, away, None, resultdict)
 
-        # use single game player extract to update overall player result dict
+        # take up to date player entry and apply to today's player dictionary
         daily_player_dict.update(entry)
 
+    # return newly updated master entries for all players playing today
     return daily_player_dict
 
 
@@ -166,7 +168,7 @@ def search_dictionary(indict, hometeam, awayteam, teamcode, resultdict):
         else:
             teamcode = awayteam
 
-    # if player found, create entry in result dict and return to previous level
+    # if player found, create entry in resultdict and return to previous level
     if 'name' in keylist:
         if indict['pos'] == 'P':
             position = 'P'
@@ -240,20 +242,30 @@ def invoke_playerMaster_as_sub(gamedate=None):
     """
 
     init_logger()
-    logger.info('Executing script playerMaster.py as sub-function')
+    logger.info('Executing script ' + SCRIPT + ' as sub-function')
     rc = main(gamedate)
 
     return rc
 
 
 def main(gamedate=None):
+    """
+    main process to update the player master
+    determine file and url names based on date of games
+    load the day's schedule into memory (possible there are no games for date)
+    open current player master and load into memory
+    call function to process the day's schedule, returns updates to master
+    apply updates to player master dictionary, write to file with date in name
+    use shell utility to copy new dictionary to player master file name
+    - this gives us a new master after each udpate and a snapshot at end of day
+    """
 
     io = determine_filenames(gamedate)
     schedule_in = io[0]
     player_out = io[1]
     date_of_games = io[2]
 
-    # load daily schedule dictionary into memory, must exist
+    # load daily schedule dictionary into memory, must exist or will bypass
     try:
         todays_schedule_dict = load_daily_schedule(schedule_in)
     except LoadDictionaryError:
@@ -261,19 +273,24 @@ def main(gamedate=None):
 
     logger.info('Creating Player Master file for date: ' + date_of_games)
 
-    # use daily schedule to extract from each associated boxscore dictionary
+    # load player master dictionary into memory
+    try:
+        with open(PLAYER_MSTR_I, 'r') as playerMaster:
+            player_mstr_dict = json.load(playerMaster)
+    except Exception:
+        player_mstr_dict = {"-file": "Player Master Dictionary File"}
+
+    # use daily schedule to extract info from associated boxscore dictionaries
     todays_player_dict = process_schedule(todays_schedule_dict)
 
-    # update player master dictionary with latest round of updates
-    with open(PLAYER_MSTR_I, 'r') as playerMaster:
-        player_mstr_dict = json.load(playerMaster)
-
+    # update master dictionary variable and write to snapshot output file
     player_mstr_dict.update(todays_player_dict)
 
     with open(player_out, 'w') as playerfile:
         json.dump(player_mstr_dict, playerfile,
                   sort_keys=True, indent=4, ensure_ascii=False)
 
+    # copy snapshot to master file name for ongoing updates through the season
     shutil.copy(player_out, PLAYER_MSTR_I)
 
     return 0
