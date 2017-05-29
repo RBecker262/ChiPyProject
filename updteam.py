@@ -12,6 +12,7 @@ Update teamMaster dictionary with any new team data found
 
 
 import sys
+import os
 import shutil
 import argparse
 import logging
@@ -22,7 +23,6 @@ import requests
 
 
 # setup global variables
-SCRIPT = 'teamMaster.py'
 LOGGING_INI = 'teamMaster_logging.ini'
 DAILY_SCHEDULE = 'Data/schedule_YYYYMMDD.json'
 TEAM_MSTR_I = 'Data/teamMaster.json'
@@ -40,7 +40,7 @@ def init_logger():
     """
 
     global logger
-    logger = logging.getLogger(SCRIPT)
+    logger = logging.getLogger(os.path.basename(__file__))
 
 
 def get_command_arguments():
@@ -67,23 +67,18 @@ def determine_filenames(gamedate=None):
     :param game_date: date of the games in format "MM-DD-YYYY"
     """
 
-    if gamedate is not None:
-        yyyy = gamedate[6:10]
-        mm = gamedate[0:2]
-        dd = gamedate[3:5]
-    else:
-        yyyy = datetime.date.today().strftime("%Y")
-        mm = datetime.date.today().strftime("%m")
-        dd = datetime.date.today().strftime("%d")
+    if gamedate is None:
+        gamedate = str(datetime.date.today())
 
-    mmddyyyy = mm + '-' + dd + '-' + yyyy
-    schedule_input = DAILY_SCHEDULE.replace('YYYYMMDD', yyyy + mm + dd)
-    team_output = TEAM_MSTR_O.replace('YYYYMMDD', yyyy + mm + dd)
+    yyyymmdd = gamedate[6:10] + gamedate[0:2] + gamedate[3:5]
 
-    logger.info('dailySched dictionary location: ' + schedule_input)
+    schedule_input = DAILY_SCHEDULE.replace('YYYYMMDD', yyyymmdd)
+    team_output = TEAM_MSTR_O.replace('YYYYMMDD', yyyymmdd)
+
+    logger.info('Daily schedule dictionary location: ' + schedule_input)
     logger.info('Updated team dictionary location: ' + team_output)
 
-    return (schedule_input, team_output, mmddyyyy)
+    return (schedule_input, team_output, gamedate)
 
 
 def load_daily_schedule(schedule_in):
@@ -214,7 +209,7 @@ def process_schedule(sched_dict, mstr_dict):
             continue
 
         # single game or first game of a double header
-        if key[-1:] == '1':
+        if key.endswith('1'):
             # home team update for single game or 1st game of doubleheader
             home_1_entry = update_entry_for_game_1(game_directory,
                                                    mstr_dict,
@@ -234,7 +229,7 @@ def process_schedule(sched_dict, mstr_dict):
             daily_team_dict.update(away_1_entry)
 
         # second game of a double header so update team entry created by game 1
-        elif key[-1:] == '2':
+        elif key.endswith('2'):
             # update home team fields including game history
             daily_team_entry = update_entry_for_game_2(game_directory,
                                                        box_level_3,
@@ -263,7 +258,7 @@ def invoke_teamMaster_as_sub(gamedate=None):
     """
 
     init_logger()
-    logger.info('Executing script ' + SCRIPT + ' as sub-function')
+    logger.info('Executing script as sub-function')
     rc = main(gamedate)
 
     return rc

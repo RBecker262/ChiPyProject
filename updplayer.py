@@ -12,6 +12,7 @@ Update playerMaster dictionary with any new player data found
 
 
 import sys
+import os
 import shutil
 import argparse
 import logging
@@ -22,7 +23,6 @@ import requests
 
 
 # setup global variables
-SCRIPT = 'playerMaster.py'
 LOGGING_INI = 'playerMaster_logging.ini'
 DAILY_SCHEDULE = 'Data/schedule_YYYYMMDD.json'
 PLAYER_MSTR_I = 'Data/playerMaster.json'
@@ -40,7 +40,7 @@ def init_logger():
     """
 
     global logger
-    logger = logging.getLogger(SCRIPT)
+    logger = logging.getLogger(os.path.basename(__file__))
 
 
 def get_command_arguments():
@@ -67,23 +67,18 @@ def determine_filenames(gamedate=None):
     :param game_date: date of the games in format "MM-DD-YYYY"
     """
 
-    if gamedate is not None:
-        yyyy = gamedate[6:10]
-        mm = gamedate[0:2]
-        dd = gamedate[3:5]
-    else:
-        yyyy = datetime.date.today().strftime("%Y")
-        mm = datetime.date.today().strftime("%m")
-        dd = datetime.date.today().strftime("%d")
+    if gamedate is None:
+        gamedate = str(datetime.date.today())
 
-    mmddyyyy = mm + '-' + dd + '-' + yyyy
-    schedule_input = DAILY_SCHEDULE.replace('YYYYMMDD', yyyy + mm + dd)
-    player_output = PLAYER_MSTR_O.replace('YYYYMMDD', yyyy + mm + dd)
+    yyyymmdd = gamedate[6:10] + gamedate[0:2] + gamedate[3:5]
+
+    schedule_input = DAILY_SCHEDULE.replace('YYYYMMDD', yyyymmdd)
+    player_output = PLAYER_MSTR_O.replace('YYYYMMDD', yyyymmdd)
 
     logger.info('dailySched dictionary location: ' + schedule_input)
     logger.info('Updated player dictionary location: ' + player_output)
 
-    return (schedule_input, player_output, mmddyyyy)
+    return (schedule_input, player_output, gamedate)
 
 
 def load_daily_schedule(schedule_in):
@@ -242,7 +237,7 @@ def invoke_playerMaster_as_sub(gamedate=None):
     """
 
     init_logger()
-    logger.info('Executing script ' + SCRIPT + ' as sub-function')
+    logger.info('Executing script as sub-function')
     rc = main(gamedate)
 
     return rc
