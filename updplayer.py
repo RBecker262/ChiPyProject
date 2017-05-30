@@ -1,5 +1,5 @@
 """
-playerMaster.py
+updplayer.py
 Author: Robert Becker
 Date: May 16, 2017
 Purpose: use daily schedule to extract player data from gameday boxscore
@@ -23,7 +23,7 @@ import requests
 
 
 # setup global variables
-LOGGING_INI = 'playerMaster_logging.ini'
+LOGGING_INI = 'updplayer_logging.ini'
 DAILY_SCHEDULE = 'Data/schedule_YYYYMMDD.json'
 PLAYER_MSTR_I = 'Data/playerMaster.json'
 PLAYER_MSTR_O = 'Data/playerMaster_YYYYMMDD.json'
@@ -48,7 +48,7 @@ def get_command_arguments():
     --date  optional, will extract players found in boxscore for this date
     """
 
-    parser = argparse.ArgumentParser('playerMaster command line arguments')
+    parser = argparse.ArgumentParser('Command line arguments')
     parser.add_argument(
         '-d',
         '--date',
@@ -75,10 +75,7 @@ def determine_filenames(gamedate=None):
     schedule_input = DAILY_SCHEDULE.replace('YYYYMMDD', yyyymmdd)
     player_output = PLAYER_MSTR_O.replace('YYYYMMDD', yyyymmdd)
 
-    logger.info('dailySched dictionary location: ' + schedule_input)
-    logger.info('Updated player dictionary location: ' + player_output)
-
-    return (schedule_input, player_output, gamedate)
+    return (schedule_input, player_output)
 
 
 def load_daily_schedule(schedule_in):
@@ -86,7 +83,7 @@ def load_daily_schedule(schedule_in):
     :param schedule_in: filename for daily schedule file to load into memory
     """
 
-    logger.info('Loading dailySchedule dictionary')
+    logger.info('Loading daily schedule from: ' + schedule_in)
 
     try:
         with open(schedule_in) as schedulefile:
@@ -98,42 +95,62 @@ def load_daily_schedule(schedule_in):
         raise LoadDictionaryError(errmsg)
 
 
+def load_boxscore(game_dir, game_id):
+    """
+    :param game_dir: MLB data server directory where game boxscore exists
+    :param game_id:  unique ID given to game by MLB
+
+    load the boxscore for a given game and return the entire dictionary
+    """
+
+    # load the boxscore dictionary based on current game directory
+    boxscoreurl = BOXSCORE.replace('/_directory_/', game_dir)
+    logger.info('Loading boxscore dictionary: ' + boxscoreurl)
+
+    try:
+        boxresp = requests.get(boxscoreurl)
+        boxscore_dict = json.loads(boxresp.text)
+    except Exception:
+        errmsg = 'Boxscore dictionary not created yet for: ' + game_id
+        logger.warning(errmsg)
+        raise LoadDictionaryError(errmsg)
+
+    return boxscore_dict
+
+
 def process_schedule(sched_dict):
     """
     :param sched_dict: daily schedule file used to drive player extract process
+
+    for each entry in the day's schedule, retrieve player info from the game's
+    boxscore and apply to the master. doubleheaders not an issue for player
     """
 
-    logger.info('Applying updates to player master dictionary')
-
-    # get dailySchedule key list and start with blank result player dictionary
+    # get dailysched keys and start with blank player dictionary for today
     keylist = list(sched_dict)
     daily_player_dict = {}
 
     # for each key, go to boxscore for that game and exctract all player data
     for key in keylist:
 
-        # set home and away team codes, game directory and resultdict variables
-        home = sched_dict[key]['home_code']
-        away = sched_dict[key]['away_code']
-        game_directory = sched_dict[key]['directory']
+        # reset result dictionary to hold all player data from current game
         resultdict = {}
 
-        # load the boxscore dictionary based on current game directory
-        boxscoreurl = BOXSCORE.replace('/_directory_/', game_directory)
-        logger.info('Loading boxscore dictionary: ' + boxscoreurl)
-
+        # load boxscore dictionary for current game directory
+        # if not found game was postponed so skip to next key (game id)
         try:
-            boxresp = requests.get(boxscoreurl)
-            boxscore_dict = json.loads(boxresp.text)
-        except Exception:
-            errmsg = 'Boxscore dictionary not created yet for: ' + key
-            logger.warning(errmsg)
+            boxscore_dict = load_boxscore(sched_dict[key]['directory'], key)
+        except LoadDictionaryError:
             continue
 
-        # search thru boxscore for current game and retrieve player data
-        entry = search_dictionary(boxscore_dict, home, away, None, resultdict)
+        # search thru boxscore for current game and retrieve all player data
+        entry = search_dictionary(boxscore_dict,
+                                  sched_dict[key]['home_code'],
+                                  sched_dict[key]['away_code'],
+                                  None,
+                                  resultdict)
 
-        # take up to date player entry and apply to today's player dictionary
+        # merge player data from current game into today's player dictionary
         daily_player_dict.update(entry)
 
     # return newly updated master entries for all players playing today
@@ -229,7 +246,7 @@ def search_list(inlist, hometeam, awayteam, teamcode, resultdict):
     return resultdict
 
 
-def invoke_playerMaster_as_sub(gamedate=None):
+def invoke_updplayer_as_sub(gamedate=None):
     """
     :param gamedate: date of the games in format "MM-DD-YYYY"
 
@@ -239,6 +256,8 @@ def invoke_playerMaster_as_sub(gamedate=None):
     init_logger()
     logger.info('Executing script as sub-function')
     rc = main(gamedate)
+
+    logger.info('Script completion code: ' + str(rc))
 
     return rc
 
@@ -258,7 +277,6 @@ def main(gamedate=None):
     io = determine_filenames(gamedate)
     schedule_in = io[0]
     player_out = io[1]
-    date_of_games = io[2]
 
     # load daily schedule dictionary into memory, must exist or will bypass
     try:
@@ -266,14 +284,14 @@ def main(gamedate=None):
     except LoadDictionaryError:
         return 20
 
-    logger.info('Creating Player Master file for date: ' + date_of_games)
-
     # load player master dictionary into memory
     try:
         with open(PLAYER_MSTR_I, 'r') as playerMaster:
             player_mstr_dict = json.load(playerMaster)
     except Exception:
         player_mstr_dict = {"-file": "Player Master Dictionary File"}
+
+    logger.info('Creating player master file: ' + player_out)
 
     # use daily schedule to extract info from associated boxscore dictionaries
     todays_player_dict = process_schedule(todays_schedule_dict)
@@ -300,5 +318,5 @@ if __name__ == '__main__':
 
     cc = main(args.game_date)
 
-    logger.info('Completion code: ' + str(cc))
+    logger.info('Script completion code: ' + str(cc))
     sys.exit(cc)

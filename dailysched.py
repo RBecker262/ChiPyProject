@@ -1,5 +1,5 @@
 """
-dailySchedule.py
+dailysched.py
 Author: Robert Becker
 Date: May 13, 2017
 Purpose: Parse the daily master scoreboard to extract MLB schedule for the day
@@ -22,7 +22,7 @@ import requests
 
 
 # setup global variables
-LOGGING_INI = 'dailySchedule_logging.ini'
+LOGGING_INI = 'dailysched_logging.ini'
 DAILY_SCHEDULE = 'Data/schedule_YYYYMMDD.json'
 URL1 = 'http://gd2.mlb.com/components/game/mlb/year_YYYY'
 URL2 = '/month_MM'
@@ -70,16 +70,14 @@ def determine_filenames(gamedate=None):
     if gamedate is None:
         gamedate = str(datetime.date.today())
 
+    yyyymmdd = gamedate[6:10] + gamedate[0:2] + gamedate[3:5]
+
     urly = URL1.replace('YYYY', gamedate[6:10])
     urlm = URL2.replace('MM', gamedate[0:2])
     urld = URL3.replace('DD', gamedate[3:5])
     url_input = urly + urlm + urld + URL4
 
-    yyyymmdd = gamedate[6:10] + gamedate[0:2] + gamedate[3:5]
     sched_output = DAILY_SCHEDULE.replace('YYYYMMDD', yyyymmdd)
-
-    logger.info('Master Scoreboard dictionary location: ' + url_input)
-    logger.info('Daily Schedule output file: ' + sched_output)
 
     return (url_input, sched_output, gamedate)
 
@@ -89,6 +87,8 @@ def load_scoreboard_dictionary(scoreboardurl, gamedate):
     :param scoreboardurl: url of json dictionary to load into memory
     :param gamedate:      date of MLB games used to extract schedules
     """
+
+    logger.info('Loading master scoreboard dictionary from: ' + scoreboardurl)
 
     try:
         scoreboardresp = requests.get(scoreboardurl)
@@ -159,7 +159,7 @@ def search_list(inlist, resultdict):
     return resultdict
 
 
-def invoke_dailySchedule_as_sub(gamedate=None):
+def invoke_dailysched_as_sub(gamedate=None):
     """
     :param gamedate: date of the games in format "MM-DD-YYYY"
 
@@ -169,6 +169,8 @@ def invoke_dailySchedule_as_sub(gamedate=None):
     init_logger()
     logger.info('Executing script as sub-function')
     rc = main(gamedate)
+
+    logger.info('Script completion code: ' + str(rc))
 
     return rc
 
@@ -188,7 +190,7 @@ def main(gamedate=None):
     except LoadDictionaryError:
         return 20
 
-    logger.info('Creating Daily Schedule file for date: ' + date_of_games)
+    logger.info('Creating daily schedule file: ' + schedule_out)
 
     # initilize result and call function to search for team schedules
     resultdict = {}
@@ -211,5 +213,5 @@ if __name__ == '__main__':
 
     cc = main(args.game_date)
 
-    logger.info('Completion code: ' + str(cc))
+    logger.info('Script completion code: ' + str(cc))
     sys.exit(cc)
