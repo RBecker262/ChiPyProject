@@ -4,7 +4,7 @@ Author: Robert Becker
 Date: May 16, 2017
 Purpose: use daily schedule to extract player data from gameday boxscore
 
-Setup file/url names based on optional date arugment (mm-dd-yyyy), or today
+Setup file/url names based on optional date arugment (mm-dd-yyyy), or use today
 Load daily schedule dictionary into memory
 Use schedule to search thru boxscore dictionaries to get all player info
 Update playerMaster dictionary with any new player data found
@@ -36,16 +36,18 @@ class LoadDictionaryError(ValueError):
 
 def init_logger():
     """
-    initialize global variable logger and set script name
+    initialize global variable logger and setup log
     """
 
     global logger
+
+    logging.config.fileConfig(LOGGING_INI, disable_existing_loggers=False)
     logger = logging.getLogger(os.path.basename(__file__))
 
 
 def get_command_arguments():
     """
-    --date  optional, will extract players found in boxscore for this date
+    -d or --date  optional, will extract schedules for this date if provided
     """
 
     parser = argparse.ArgumentParser('Command line arguments')
@@ -64,11 +66,13 @@ def get_command_arguments():
 
 def determine_filenames(gamedate=None):
     """
-    :param game_date: date of the games in format "MM-DD-YYYY"
+    :param date: date of the games in format "MM-DD-YYYY"
+
+    date is used throughout url and file names the guide to extracting data
     """
 
     if gamedate is None:
-        gamedate = str(datetime.date.today())
+        gamedate = datetime.date.today().strftime("%m-%d-%Y")
 
     yyyymmdd = gamedate[6:10] + gamedate[0:2] + gamedate[3:5]
 
@@ -81,6 +85,8 @@ def determine_filenames(gamedate=None):
 def load_daily_schedule(schedule_in):
     """
     :param schedule_in: filename for daily schedule file to load into memory
+
+    daily schedule must exist to extract any info from boxscore dictionaries
     """
 
     logger.info('Loading daily schedule from: ' + schedule_in)
@@ -98,7 +104,7 @@ def load_daily_schedule(schedule_in):
 def load_boxscore(game_dir, game_id):
     """
     :param game_dir: MLB data server directory where game boxscore exists
-    :param game_id:  unique ID given to game by MLB
+    :param game_id:  unique ID given to each game of season by MLB
 
     load the boxscore for a given game and return the entire dictionary
     """
@@ -120,21 +126,22 @@ def load_boxscore(game_dir, game_id):
 
 def process_schedule(sched_dict):
     """
-    :param sched_dict: daily schedule file used to drive player extract process
+    :param sched_dict: daily schedule used to drive player extract process
 
-    for each entry in the day's schedule, retrieve player info from the game's
-    boxscore and apply to the master. doubleheaders not an issue for player
+    for each entry in daily schedule, retrieve player info from that boxscore
+    and apply to master. doubleheaders are not an issue for player update.
+    daily_player_dict will hold all player updates to be made to master.
     """
 
     # get dailysched keys and start with blank player dictionary for today
-    keylist = list(sched_dict)
+    game_id_list = list(sched_dict)
     daily_player_dict = {}
 
     # for each key, go to boxscore for that game and exctract all player data
-    for key in keylist:
+    for key in game_id_list:
 
         # reset result dictionary to hold all player data from current game
-        resultdict = {}
+        result = {}
 
         # load boxscore dictionary for current game directory
         # if not found game was postponed so skip to next key (game id)
@@ -148,7 +155,8 @@ def process_schedule(sched_dict):
                                   sched_dict[key]['home_code'],
                                   sched_dict[key]['away_code'],
                                   None,
-                                  resultdict)
+                                  result,
+                                  None)
 
         # merge player data from current game into today's player dictionary
         daily_player_dict.update(entry)
@@ -157,13 +165,164 @@ def process_schedule(sched_dict):
     return daily_player_dict
 
 
-def search_dictionary(indict, hometeam, awayteam, teamcode, resultdict):
+def build_pitching_stats(keylist, indict):
     """
-    :param indict:     dictionary to be parsed
-    :param hometeam:   home team code starts as None and set once found in dict
-    :param awayteam:   away team code starts as None and set once found in dict
-    :param teamcode:   set to hometeam or awayteam once team_flag is found
-    :param resultdict: result dictionary, starts blank, updated for each entry
+    :param keylist: list of keys in indict dictionary
+    :param indict:  boxscore dictionary from which to extract player data
+
+    this is called when the pitching stats for one player is found
+    extract all pitching data, create an entry and return it
+    """
+
+    statkey = 'stats_pitching'
+
+    # set initial values in case given keys are not found in dictionary
+    wins = 0
+    so = 0
+    era = 0
+    walks = 0
+    hits = 0
+    ip = 0
+    saves = 0
+
+    # for each pitching stat found update the associated variable
+    # can't convert era to float type when pitcher era is infinity
+    if 'w' in keylist:
+        wins = int(indict['w'])
+    if 'so' in keylist:
+        so = int(indict['s_so'])
+    if 'era' in keylist and '-' not in indict['era']:
+        era = float(indict['era'])
+    if 's_bb' in keylist:
+        walks = int(indict['s_bb'])
+    if 's_h' in keylist:
+        hits = int(indict['s_h'])
+    if 's_ip' in keylist:
+        ip = float(indict['s_ip'])
+    if 'sv' in keylist:
+        saves = int(indict['sv'])
+
+    pitcherstats = {'wins': wins,
+                    'so': so,
+                    'era': era,
+                    'walks': walks,
+                    'hits': hits,
+                    'ip': ip,
+                    'saves': saves}
+
+    return (statkey, pitcherstats)
+
+
+def build_batting_stats(keylist, indict):
+    """
+    :param keylist: list of keys in indict dictionary
+    :param indict:  boxscore dictionary from which to extract player data
+
+    this is called when the batting stats for one player is found
+    extract all batting data, create an entry and return it
+    """
+
+    statkey = 'stats_batting'
+
+    # set initial values in case given keys are not found in dictionary
+    hits = 0
+    hr = 0
+    rbi = 0
+    runs = 0
+    avg = '.000'
+
+    # for each batting stat found update the associated variable
+    # avg stays type string since no math will be done and format is consistent
+    if 's_h' in keylist:
+        hits = int(indict['s_h'])
+    if 's_hr' in keylist:
+        hr = int(indict['s_hr'])
+    if 's_rbi' in keylist:
+        rbi = int(indict['s_rbi'])
+    if 's_r' in keylist:
+        runs = int(indict['s_r'])
+    if 'avg' in keylist:
+        avg = indict['avg']
+
+    batterstats = {'hits': hits,
+                   'hr': hr,
+                   'rbi': rbi,
+                   'runs': runs,
+                   'avg': avg}
+
+    return (statkey, batterstats)
+
+
+def build_player_stats(prevlev, keylist, indict):
+    """
+    :param prevlev: previous level, used to identify pitching vs batting stats
+    :param keylist: list of keys in indict dictionary
+    :param indict:  boxscore dictionary from which to extract player data
+
+    establish the position type for the player
+    call appropriate routine to get pitching vs batting stats
+    """
+
+    if indict['pos'] == 'P':
+        pos_type = 'P'
+    else:
+        pos_type = 'B'
+
+    if prevlev == 'pitcher':
+        pitcher = build_pitching_stats(keylist, indict)
+        statkey = pitcher[0]
+        playerstats = pitcher[1]
+
+    elif prevlev == 'batter':
+        batter = build_batting_stats(keylist, indict)
+        statkey = batter[0]
+        playerstats = batter[1]
+
+    return (statkey, playerstats, pos_type)
+
+
+def update_result_dict(indict, result, statkey, stats, teamcode, pos_type):
+    """
+    :param indict:   boxscore dictionary from which to extract player data
+    :param result:   all dictionary entries being created from the current game
+    :param statkey:  sub dictionary key to identify picther vs batter stats
+    :param stats:    pitcher or batter stats for player found at current level
+    :param teamcode: team code that player belongs to
+    :param pos_type: P for pitcher or B for Batter
+
+    called to create or update a player entry in result dictionary with stats
+    some players have both pitching and batting stats (NL pitchers), but only
+    one set of stats is updated at a time, hence the need to update entries
+    """
+
+    # if player already in result dictionary, update that entry with the
+    # pitcher or batter stats just found, only one is found at a time
+    if indict['name'] in list(result.keys()):
+        logger.debug(indict['name'] + " updating player in master")
+        result[indict['name']].update({statkey: stats})
+
+    # name does not already exist so create new entry for player
+    else:
+        logger.debug(indict['name'] + " adding player to master")
+        entry = {indict['name']:
+                 {'full_name': indict['name_display_first_last'],
+                  'club_code': teamcode,
+                  'position': indict['pos'],
+                  'pos_type': pos_type,
+                  statkey: stats}}
+        result.update(entry)
+
+    return result
+
+
+def search_dictionary(indict, hometeam, awayteam, teamcode, result, prevlev):
+    """
+    :param indict:   boxscore dictionary for current game
+    :param hometeam: team code starts as None and set once found to pass deeper
+    :param awayteam: team code starts as None and set once found to pass deeper
+    :param teamcode: set to hometeam or awayteam once team_flag is found
+    :param result:   result dictionary, starts blank, updated for each entry
+    :param prevlev:  previous level key, used to identify pitchers vs batters
 
     Function loops through dictionary keys and examines values
     If function finds nested dictionary, call itself to parse next dict level
@@ -180,48 +339,53 @@ def search_dictionary(indict, hometeam, awayteam, teamcode, resultdict):
         else:
             teamcode = awayteam
 
-    # if player found, create entry in resultdict and return to previous level
+    # if player found, create entry in result and return to previous level
     if 'name' in keylist:
-        if indict['pos'] == 'P':
-            position = 'P'
-        else:
-            position = 'B'
-        entry = {indict['name']:
-                 {'full_name': indict['name_display_first_last'],
-                  'team_code': teamcode,
-                  'position': indict['pos'],
-                  'point_pos': position}}
-        resultdict.update(entry)
-        logger.debug(indict['name'] + " added to player result dictionary")
+        player_stats = build_player_stats(prevlev,
+                                          keylist,
+                                          indict)
+        statkey = player_stats[0]
+        stats = player_stats[1]
+        pos_type = player_stats[2]
 
-        return resultdict
+        result = update_result_dict(indict,
+                                    result,
+                                    statkey,
+                                    stats,
+                                    teamcode,
+                                    pos_type)
+
+        return result
 
     # for each dictionary value call appropriate function based on type
     for dictkey in keylist:
         if isinstance(indict[dictkey], dict):
-            resultdict = search_dictionary(indict[dictkey],
-                                           hometeam,
-                                           awayteam,
-                                           teamcode,
-                                           resultdict)
+            result = search_dictionary(indict[dictkey],
+                                       hometeam,
+                                       awayteam,
+                                       teamcode,
+                                       result,
+                                       dictkey)
         elif isinstance(indict[dictkey], list):
-            resultdict = search_list(indict[dictkey],
-                                     hometeam,
-                                     awayteam,
-                                     teamcode,
-                                     resultdict)
+            result = search_list(indict[dictkey],
+                                 hometeam,
+                                 awayteam,
+                                 teamcode,
+                                 result,
+                                 dictkey)
 
     # return whatever is in result dicionary at end of this dictionary level
-    return resultdict
+    return result
 
 
-def search_list(inlist, hometeam, awayteam, teamcode, resultdict):
+def search_list(inlist, hometeam, awayteam, teamcode, result, prevlev):
     """
-    :param indict:     dictionary to be parsed
-    :param hometeam:   home team code starts as None and set once found in dict
-    :param awayteam:   away team code starts as None and set once found in dict
-    :param teamcode:   set to hometeam or awayteam once team_flag is found
-    :param resultdict: result dictionary, starts blank, updated for each entry
+    :param indict:   list from boxscore dictionary to be parsed
+    :param hometeam: team code starts as None and set once found to pass deeper
+    :param awayteam: team code starts as None and set once found to pass deeper
+    :param teamcode: set to hometeam or awayteam once team_flag is found
+    :param result:   result dictionary, starts blank, updated for each entry
+    :param prevlev:  previous level key, used to identify pitchers vs batters
 
     If function finds nested dictionary, call function to parse next dict level
     If function finds list, call itself to parse the next list level
@@ -230,20 +394,22 @@ def search_list(inlist, hometeam, awayteam, teamcode, resultdict):
     # for each list value call appropriate function based on type
     for listentry in inlist:
         if isinstance(listentry, dict):
-            resultdict = search_dictionary(listentry,
-                                           hometeam,
-                                           awayteam,
-                                           teamcode,
-                                           resultdict)
+            result = search_dictionary(listentry,
+                                       hometeam,
+                                       awayteam,
+                                       teamcode,
+                                       result,
+                                       prevlev)
         elif isinstance(listentry, list):
-            resultdict = search_list(listentry,
-                                     hometeam,
-                                     awayteam,
-                                     teamcode,
-                                     resultdict)
+            result = search_list(listentry,
+                                 hometeam,
+                                 awayteam,
+                                 teamcode,
+                                 result,
+                                 prevlev)
 
     # return whatever is in result dicionary at end of this list
-    return resultdict
+    return result
 
 
 def invoke_updplayer_as_sub(gamedate=None):
@@ -288,8 +454,9 @@ def main(gamedate=None):
     try:
         with open(PLAYER_MSTR_I, 'r') as playerMaster:
             player_mstr_dict = json.load(playerMaster)
+    # if no master build one from scratch
     except Exception:
-        player_mstr_dict = {"-file": "Player Master Dictionary File"}
+        player_mstr_dict = {}
 
     logger.info('Creating player master file: ' + player_out)
 
@@ -310,7 +477,6 @@ def main(gamedate=None):
 
 
 if __name__ == '__main__':
-    logging.config.fileConfig(LOGGING_INI)
     init_logger()
     logger.info('Executing script as main function')
 

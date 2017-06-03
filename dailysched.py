@@ -4,7 +4,7 @@ Author: Robert Becker
 Date: May 13, 2017
 Purpose: Parse the daily master scoreboard to extract MLB schedule for the day
 
-Setup file/url names based on optional date arugment (mm-dd-yyyy), or today
+Setup file/url names based on optional date arugment (mm-dd-yyyy), or use today
 Load master scoreboard dictionary into memory
 Search thru dictionary to get directory information for all MLB games for date
 Create output file with all schedules for the given date
@@ -36,16 +36,18 @@ class LoadDictionaryError(ValueError):
 
 def init_logger():
     """
-    initialize global variable logger and set script name
+    initialize global variable logger and setup log
     """
 
     global logger
+
+    logging.config.fileConfig(LOGGING_INI, disable_existing_loggers=False)
     logger = logging.getLogger(os.path.basename(__file__))
 
 
 def get_command_arguments():
     """
-    --date  optional, will extract schedules for this date if provided
+    -d or --date  optional, will extract schedules for this date if provided
     """
 
     parser = argparse.ArgumentParser('Gameday schedule command line arguments')
@@ -65,10 +67,12 @@ def get_command_arguments():
 def determine_filenames(gamedate=None):
     """
     :param date: date of the games in format "MM-DD-YYYY"
+
+    date is used throughout url and file names the guide to extracting data
     """
 
     if gamedate is None:
-        gamedate = str(datetime.date.today())
+        gamedate = datetime.date.today().strftime("%m-%d-%Y")
 
     yyyymmdd = gamedate[6:10] + gamedate[0:2] + gamedate[3:5]
 
@@ -86,6 +90,8 @@ def load_scoreboard_dictionary(scoreboardurl, gamedate):
     """
     :param scoreboardurl: url of json dictionary to load into memory
     :param gamedate:      date of MLB games used to extract schedules
+
+    load the Master Scoreboard, it may not exist yet for current date
     """
 
     logger.info('Loading master scoreboard dictionary from: ' + scoreboardurl)
@@ -108,7 +114,7 @@ def search_dictionary(indict, resultdict):
     Function loops through dictionary keys and examines values
     If function finds nested dictionary, call itself to parse next dict level
     If function finds list, call function to parse the next list level
-    As soon as game data is found return to previous recursion level
+    Once game data found capture data and return to previous recursion level
     """
 
     keylist = list(indict.keys())
@@ -117,10 +123,13 @@ def search_dictionary(indict, resultdict):
     if 'game_data_directory' in keylist:
         gcstart = len(indict['game_data_directory']) - 15
         gamecode = indict['game_data_directory'][gcstart:]
+
         entry = {gamecode:
                  {"directory": indict['game_data_directory'] + '/',
                   "away_code": indict['away_code'],
-                  "home_code": indict['home_code']}}
+                  "home_code": indict['home_code'],
+                  "game_time": indict['home_time'] + indict['home_ampm']}}
+
         resultdict.update(entry)
         logger.debug(gamecode + " entry added to result dictionary")
 
@@ -163,7 +172,7 @@ def invoke_dailysched_as_sub(gamedate=None):
     """
     :param gamedate: date of the games in format "MM-DD-YYYY"
 
-    This routine is invoked when running as imported function vs main driver
+    this routine is invoked when running as imported function vs main driver
     """
 
     init_logger()
@@ -205,7 +214,6 @@ def main(gamedate=None):
 
 
 if __name__ == '__main__':
-    logging.config.fileConfig(LOGGING_INI)
     init_logger()
     logger.info('Executing script as main function')
 
