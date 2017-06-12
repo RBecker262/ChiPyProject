@@ -165,15 +165,17 @@ def process_schedule(sched_dict):
     return daily_player_dict
 
 
-def build_pitching_stats(keylist, indict):
+def build_pitching_stats(indict):
     """
-    :param keylist: list of keys in indict dictionary
     :param indict:  boxscore dictionary from which to extract player data
 
     this is called when the pitching stats for one player is found
     extract all pitching data, create an entry and return it
     """
 
+    keylist = list(indict.keys())
+
+    # key used for nested dictionary within player entry for pitching stats
     statkey = 'stats_pitching'
 
     # set initial values in case given keys are not found in dictionary
@@ -213,15 +215,17 @@ def build_pitching_stats(keylist, indict):
     return (statkey, pitcherstats)
 
 
-def build_batting_stats(keylist, indict):
+def build_batting_stats(indict):
     """
-    :param keylist: list of keys in indict dictionary
     :param indict:  boxscore dictionary from which to extract player data
 
     this is called when the batting stats for one player is found
     extract all batting data, create an entry and return it
     """
 
+    keylist = list(indict.keys())
+
+    # key used for nested dictionary within player entry for batting stats
     statkey = 'stats_batting'
 
     # set initial values in case given keys are not found in dictionary
@@ -253,10 +257,9 @@ def build_batting_stats(keylist, indict):
     return (statkey, batterstats)
 
 
-def build_player_stats(prevlev, keylist, indict):
+def build_player_stats(prevlev, indict):
     """
     :param prevlev: previous level, used to identify pitching vs batting stats
-    :param keylist: list of keys in indict dictionary
     :param indict:  boxscore dictionary from which to extract player data
 
     establish the position type for the player
@@ -269,12 +272,12 @@ def build_player_stats(prevlev, keylist, indict):
         pos_type = 'B'
 
     if prevlev == 'pitcher':
-        pitcher = build_pitching_stats(keylist, indict)
+        pitcher = build_pitching_stats(indict)
         statkey = pitcher[0]
         playerstats = pitcher[1]
 
     elif prevlev == 'batter':
-        batter = build_batting_stats(keylist, indict)
+        batter = build_batting_stats(indict)
         statkey = batter[0]
         playerstats = batter[1]
 
@@ -342,7 +345,6 @@ def search_dictionary(indict, hometeam, awayteam, teamcode, result, prevlev):
     # if player found, create entry in result and return to previous level
     if 'name' in keylist:
         player_stats = build_player_stats(prevlev,
-                                          keylist,
                                           indict)
         statkey = player_stats[0]
         stats = player_stats[1]
