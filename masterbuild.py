@@ -28,10 +28,12 @@ LOGGING_INI = 'masterbuild_logging.ini'
 
 def init_logger():
     """
-    initialize global variable logger and set script name
+    initialize global variable logger and setup log
     """
 
     global logger
+
+    logging.config.fileConfig(LOGGING_INI, disable_existing_loggers=False)
     logger = logging.getLogger(os.path.basename(__file__))
 
 
@@ -67,7 +69,10 @@ def establish_game_date(gamedate=None):
 
     # start/end dates must be type datetime to get thru dates in range serially
     startdate = datetime.datetime.strptime(gamedate, "%m-%d-%Y")
-    enddate = datetime.datetime.today()
+    enddate = datetime.datetime.today().replace(hour=0,
+                                                minute=0,
+                                                second=0,
+                                                microsecond=0)
 
     if startdate == enddate:
         logger.info('Updating all master files for: ' + gamedate)
@@ -83,31 +88,32 @@ def main(gamedate=None):
     currentdate = dates[0]
     enddate = dates[1]
 
-    # loop and process all games from start date through today's games
+    # loop to process all games from start date through today's games
     while currentdate <= enddate:
 
-        # set the current date to the proper format for function command lines
+        # set current date to proper format for function command line args
         date_of_game = currentdate.strftime("%m-%d-%Y")
-        logger.info('----------')
+        logger.info('--------------------------------------------------')
         logger.info('Building schedule and master files for: ' + date_of_game)
 
         # create the daily schedule for the given date
         rc = dailysched.invoke_dailysched_as_sub(date_of_game)
 
-        # if the date's schedule is good, pdate the player and team masters
+        # if the date's schedule is good then update master files
         if rc == 0:
+            # update player master
             rc = updplayer.invoke_updplayer_as_sub(date_of_game)
 
+            # update team master
             rc = updteam.invoke_updteam_as_sub(date_of_game)
 
-        # move the current date up 1 day
+        # bump the current date up by 1 day
         currentdate += datetime.timedelta(days=1)
 
     return rc
 
 
 if __name__ == '__main__':
-    logging.config.fileConfig(LOGGING_INI)
     init_logger()
     logger.info('Executing script as main function')
 

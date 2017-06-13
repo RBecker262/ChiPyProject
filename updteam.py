@@ -4,11 +4,11 @@ Author: Robert Becker
 Date: May 21, 2017
 Purpose: use daily schedule to extract team data from gameday boxscore
 
-Setup file/url names based on optional date arugment (mm-dd-yyyy), or today
+Setup file/url names based on optional date arugment (mm-dd-yyyy), or use today
 Load daily schedule dictionary into memory
 Use schedule to search thru boxscore dictionaries to get all team info
 Update teamMaster dictionary with any new team data found
-Keep history of all games each team plays and pointers to today's games
+Keep log of games played for each team and pointers to today's games
 """
 
 
@@ -37,16 +37,18 @@ class LoadDictionaryError(ValueError):
 
 def init_logger():
     """
-    initialize global variable logger and set script name
+    initialize global variable logger and setup log
     """
 
     global logger
+
+    logging.config.fileConfig(LOGGING_INI, disable_existing_loggers=False)
     logger = logging.getLogger(os.path.basename(__file__))
 
 
 def get_command_arguments():
     """
-    --date  optional, will extract team data found in boxscore for this date
+    -d or --date  optional, will extract schedules for this date if provided
     """
 
     parser = argparse.ArgumentParser('Command line arguments')
@@ -67,12 +69,11 @@ def determine_filenames(gamedate=None):
     """
     :param game_date: date of the games in format "MM-DD-YYYY"
 
-    gamedate is used to determine filenames and url links
-    since it is optional, today's date is used if gamedate not provided
+    date is used throughout url and file names the guide to extracting data
     """
 
     if gamedate is None:
-        gamedate = str(datetime.date.today())
+        gamedate = datetime.date.today().strftime("%m-%d-%Y")
 
     yyyymmdd = gamedate[6:10] + gamedate[0:2] + gamedate[3:5]
 
@@ -85,6 +86,8 @@ def determine_filenames(gamedate=None):
 def load_daily_schedule(schedule_in):
     """
     :param schedule_in: filename for daily schedule file to load into memory
+
+    daily schedule must exist to extract any info from boxscore dictionaries
     """
 
     logger.info('Loading daily schedule from: ' + schedule_in)
@@ -103,7 +106,7 @@ def reset_todays_games_in_master(masterdict):
     """
     :param masterdict: team master dictionary to be updated
 
-    remove today_1 & today_2 keys from master dictionary for each team in case
+    remove game related keys from master dictionary for each team in case
     teams don't play on a given date, keys are rebuilt for teams that do play
     """
 
@@ -113,125 +116,150 @@ def reset_todays_games_in_master(masterdict):
         teamdatakeys = list(masterdict[teamkey])
         if 'today_1' in teamdatakeys:
             del masterdict[teamkey]['today_1']
+            del masterdict[teamkey]['today_1_time']
         if 'today_2' in teamdatakeys:
             del masterdict[teamkey]['today_2']
+            del masterdict[teamkey]['today_2_time']
+        if 'today_opp' in teamdatakeys:
+            del masterdict[teamkey]['today_opp']
 
     return masterdict
 
 
-def update_entry_for_game_1(game_dir, mstr_dict, box_lev_3, homeaway, team):
+def update_entry_for_game_1(sched_dict, mstr_dict, box_lev_3, homeaway, team):
     """
-    :param game_dir:    game directory for given date
-    :param mstr_dict:   current team master dictionary
-    :param box_level_3: boxscore dictionary level 3 where team info resides
-    :param homeaway:    identifies team as home or away
-    :param team:        identifies team 3 character code
+    :param sched_dict: schedule dictionary entry for given game
+    :param mstr_dict:  current team master dictionary
+    :param box_lev_3:  boxscore dictionary level 3 where team info resides
+    :param homeaway:   identifies team as home or away
+    :param team:       identifies team 3 character code
 
-    creates a complete updated entry per team including all game history
+    create a complete updated team entry including team's schedule to date
     """
+
+    game_dir = sched_dict['directory']
+    gametime = sched_dict['game_time']
 
     try:
-        # grab team game history from master and add current game
-        hist = mstr_dict[team]['game_hist']
-        hist.update({box_lev_3['game_id']: game_dir})
+        # grab team schedule from master and add current game
+        sched = mstr_dict[team]['schedule']
+        sched.update({box_lev_3['game_id']: game_dir})
     except Exception:
-        # first time game history being created for this team
-        hist = {box_lev_3['game_id']: game_dir}
+        # first time schedule being created for this team
+        sched = {box_lev_3['game_id']: game_dir}
 
-    # create complete entry for all team fields including updated game history
+    # set opponent for today's game
+    if homeaway == 'home':
+        atvs = 'vs '
+        oppkey = 'away'
+    else:
+        atvs = 'at '
+        oppkey = 'home'
+
+    # build team record (W-L) and opponent (at Chicago Cubs / vs Chicago Cubs)
+    rec = box_lev_3[homeaway + '_wins'] + '-' + box_lev_3[homeaway + '_loss']
+    opp = atvs + box_lev_3[oppkey + '_fname']
+
+    # create complete entry for all team fields including updated team schedule
     entry = {team:
-             {'team_name': box_lev_3[homeaway + '_fname'],
-              'wins': box_lev_3[homeaway + '_wins'],
-              'losses': box_lev_3[homeaway + '_loss'],
+             {'club_name': box_lev_3[homeaway + '_fname'],
+              'record': rec,
               'today_1': game_dir,
-              'game_hist': hist}}
+              'today_1_time': gametime,
+              'today_opp': opp,
+              'schedule': sched}}
 
     return entry
 
 
-def game_1_update(game_dir, mstr_dict, box_lev_3, home, away, daily_team):
+def game_1_update(sched_dict, mstr_dict, box_lev_3, daily_team):
     """
-    :param game_dir:   game directory for given date
+    :param sched_dict: schedule dictionary entry for given game
     :param mstr_dict:  current team master dictionary
     :param box_lev_3:  boxscore dictionary level 3 where team info resides
-    :param home:       identifies home team 3 character code
-    :param away:       identifies away team 3 character code
     :param daily_team: complete dictionary entries for teams playing today
 
     create complete entries for home and away teams
     merge home and away entries into the daily team dictionary
     """
 
+    home = sched_dict['home_code']
+    away = sched_dict['away_code']
+
     # home team update for single game or 1st game of doubleheader
-    home_entry = update_entry_for_game_1(game_dir,
+    home_entry = update_entry_for_game_1(sched_dict,
                                          mstr_dict,
                                          box_lev_3,
                                          'home',
                                          home)
 
     # away team update for single game or 1st game of doubleheader
-    away_entry = update_entry_for_game_1(game_dir,
+    away_entry = update_entry_for_game_1(sched_dict,
                                          mstr_dict,
                                          box_lev_3,
                                          'away',
                                          away)
 
-    # metge home and away entries into the today's team master
+    # merge home and away entries into the today's team master
     daily_team.update(home_entry)
     daily_team.update(away_entry)
 
     return daily_team
 
 
-def update_entry_for_game_2(game_dir, box_level_3, homeaway, daily_team):
+def update_entry_for_game_2(sched_dict, box_lev_3, homeaway, daily_team):
     """
-    :param game_dir:    game directory for given date
-    :param box_level_3: boxscore dictionary level 3 where team info resides
-    :param homeaway:    identifies team as home or away
-    :param daily_team:  dictionary entry for team to be update with game 2 info
+    :param sched_dict: schedule dictionary entry for given game
+    :param box_lev_3:  boxscore dictionary level 3 where team info resides
+    :param homeaway:   identifies team as home or away
+    :param daily_team: dictionary entry for team to be update with game 2 info
 
-    complete updated team entry already created for game 1 of a double header
-    this updates that team entry with data from game 2 of the double header
+    update entry created for game 1 of double header using data from game 2
     """
 
-    upd_entry = {'wins': box_level_3[homeaway + '_wins'],
-                 'losses': box_level_3[homeaway + '_loss'],
-                 'today_2': game_dir}
+    game_dir = sched_dict['directory']
+    gametime = sched_dict['game_time']
+
+    # update the team record but opponent would be the same
+    rec = box_lev_3[homeaway + '_wins'] + '-' + box_lev_3[homeaway + '_loss']
+
+    upd_entry = {'record': rec,
+                 'today_2': game_dir,
+                 'today_2_time': gametime}
     daily_team.update(upd_entry)
 
-    upd_entry = {box_level_3['game_id']: game_dir}
-    daily_team['game_hist'].update(upd_entry)
+    # add game 2 of double header to team schedule history
+    upd_entry = {box_lev_3['game_id']: game_dir}
+    daily_team['schedule'].update(upd_entry)
 
     return daily_team
 
 
-def game_2_update(game_dir, box_lev_3, home, away, daily_team):
+def game_2_update(sched_dict, box_lev_3, daily_team):
     """
-    :param game_dir:   game directory for given date
+    :param sched_dict: schedule dictionary entry for given game
     :param box_lev_3:  boxscore dictionary level 3 where team info resides
-    :param home:       identifies home team 3 character code
-    :param away:       identifies away team 3 character code
     :param daily_team: complete dictionary entries for teams playing today
 
     create complete entries for home and away teams
-    use home and away entries to update each team's entry in the master
+    use home and away entries to update each team's entry in the daily master
     """
 
     # home team update for 2nd game of doubleheader
-    home_entry = update_entry_for_game_2(game_dir,
+    home_entry = update_entry_for_game_2(sched_dict,
                                          box_lev_3,
                                          'home',
-                                         daily_team[home])
+                                         daily_team[sched_dict['home_code']])
 
     # away team update for 2nd game of doubleheader
-    away_entry = update_entry_for_game_2(game_dir,
+    away_entry = update_entry_for_game_2(sched_dict,
                                          box_lev_3,
                                          'away',
-                                         daily_team[away])
+                                         daily_team[sched_dict['away_code']])
 
-    # metge entries into today's master at team level as not all keys updated
-    daily_team[home].update(home_entry)
-    daily_team[away].update(away_entry)
+    # merge entries into today's master at team level as not all keys updated
+    daily_team[sched_dict['home_code']].update(home_entry)
+    daily_team[sched_dict['away_code']].update(away_entry)
 
     return daily_team
 
@@ -239,7 +267,7 @@ def game_2_update(game_dir, box_lev_3, home, away, daily_team):
 def load_boxscore(game_dir, game_id):
     """
     :param game_dir: MLB data server directory where game boxscore exists
-    :param game_id:  unique ID given to game by MLB
+    :param game_id:  unique ID given to each game of season by MLB
 
     load the boxscore for a given game and return the entire 3rd level
     dictionary entry using key ['data']['directory'] as this contains
@@ -264,21 +292,21 @@ def load_boxscore(game_dir, game_id):
 
 def process_schedule(sched_dict, mstr_dict):
     """
-    :param sched_dict: daily schedule file used to drive team extract process
-    :param mstr_dict:  team master file to be updated through this process
+    :param sched_dict: daily schedule used to drive team extract process
+    :param mstr_dict:  team master dictionary
 
-    for each entry in the day's schedule, retrieve team info from the game's
-    boxscore and apply to the master. handling double headers made this way fun
+    for each entry in daily schedule retrieve team info from game's boxscore
+    and apply to daily master. handling double headers made this way fun!
     """
 
     # delete todays games in team master since we are rebuilding today
-    # get list of game ids from schedule (key) and init todays team master
+    # get list of game ids from schedule (key) and init todays daily master
     mstr_dict = reset_todays_games_in_master(mstr_dict)
-    keylist = list(sched_dict)
+    gameidlist = list(sched_dict)
     daily_team_dict = {}
 
     # for each key, go to boxscore for that game and exctract all team data
-    for key in keylist:
+    for key in gameidlist:
 
         # load boxscore dictionary for current game directory
         # if not found game was postponed so skip to next key (game id)
@@ -289,19 +317,15 @@ def process_schedule(sched_dict, mstr_dict):
 
         if key.endswith('1'):
             # update home/away teams for single game or game 1 of doubleheader
-            daily_team_dict = game_1_update(sched_dict[key]['directory'],
+            daily_team_dict = game_1_update(sched_dict[key],
                                             mstr_dict,
                                             box_level_3,
-                                            sched_dict[key]['home_code'],
-                                            sched_dict[key]['away_code'],
                                             daily_team_dict)
 
         elif key.endswith('2'):
             # use second game of doubleheader to update entry created by game 1
-            daily_team_dict = game_2_update(sched_dict[key]['directory'],
+            daily_team_dict = game_2_update(sched_dict[key],
                                             box_level_3,
-                                            sched_dict[key]['home_code'],
-                                            sched_dict[key]['away_code'],
                                             daily_team_dict)
 
     # return newly updated master entries for all teams playing today
@@ -350,8 +374,9 @@ def main(gamedate=None):
     try:
         with open(TEAM_MSTR_I, 'r') as teamMaster:
             team_mstr_dict = json.load(teamMaster)
+    # if no master build one from scratch
     except Exception:
-        team_mstr_dict = {"-file": "Team Master Dictionary File"}
+        team_mstr_dict = {}
 
     logger.info('Creating team master file: ' + team_out)
 
@@ -372,7 +397,6 @@ def main(gamedate=None):
 
 
 if __name__ == '__main__':
-    logging.config.fileConfig(LOGGING_INI)
     init_logger()
     logger.info('Executing script as main function')
 
