@@ -58,26 +58,28 @@ def get_command_arguments():
 
 def establish_game_date(gamedate=None):
     """
-    :param game_date: date of the games in format "MM-DD-YYYY"
+    :param gamedate: date of the games in format "MM-DD-YYYY"
 
     If command line agrument not passed, use today's date
     create start and end dates of range, even if just processing today
     """
 
+    # when today's date is used to calculate dates, subtract 6 hours to finish
+    # getting data from yesterday's schedule for games ending after midnight.
+    # allows master update process to run for current games until 6am next day
     if gamedate is None:
-        gamedate = datetime.date.today().strftime("%m-%d-%Y")
+        gamedate = datetime.datetime.today()
+        gamedate += datetime.timedelta(hours=-6)
+        gamedate = gamedate.strftime("%m-%d-%Y")
 
     # start/end dates must be type datetime to get thru dates in range serially
     startdate = datetime.datetime.strptime(gamedate, "%m-%d-%Y")
-    enddate = datetime.datetime.today().replace(hour=0,
-                                                minute=0,
-                                                second=0,
-                                                microsecond=0)
 
-    if startdate == enddate:
-        logger.info('Updating all master files for: ' + gamedate)
-    else:
-        logger.info('Building master files from ' + gamedate + ' thru today')
+    enddate = datetime.datetime.today()
+    enddate += datetime.timedelta(hours=-6)
+    enddate = enddate.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    logger.info('Updating master files from ' + gamedate + ' thru current day')
 
     return (startdate, enddate)
 
@@ -93,7 +95,7 @@ def main(gamedate=None):
 
         # set current date to proper format for function command line args
         date_of_game = currentdate.strftime("%m-%d-%Y")
-        logger.info('--------------------------------------------------')
+        logger.info('---------------------------------------')
         logger.info('Building schedule and master files for: ' + date_of_game)
 
         # create the daily schedule for the given date
@@ -101,11 +103,11 @@ def main(gamedate=None):
 
         # if the date's schedule is good then update master files
         if rc == 0:
-            # update player master
-            rc = updplayer.invoke_updplayer_as_sub(date_of_game)
-
             # update team master
             rc = updteam.invoke_updteam_as_sub(date_of_game)
+
+            # update player master
+            rc = updplayer.invoke_updplayer_as_sub(date_of_game)
 
         # bump the current date up by 1 day
         currentdate += datetime.timedelta(days=1)
