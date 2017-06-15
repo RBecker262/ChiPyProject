@@ -24,9 +24,9 @@ import requests
 
 # setup global variables
 LOGGING_INI = 'updplayer_logging.ini'
-DAILY_SCHEDULE = 'Data/schedule_YYYYMMDD.json'
-PLAYER_MSTR_I = 'Data/playerMaster.json'
-PLAYER_MSTR_O = 'Data/playerMaster_YYYYMMDD.json'
+DAILY_SCHEDULE = '../Data/schedule_YYYYMMDD.json'
+PLAYER_MSTR_I = '../Data/playerMaster.json'
+PLAYER_MSTR_O = '../Data/playerMaster_YYYYMMDD.json'
 BOXSCORE = 'http://gd2.mlb.com/_directory_/boxscore.json'
 
 
@@ -66,13 +66,16 @@ def get_command_arguments():
 
 def determine_filenames(gamedate=None):
     """
-    :param date: date of the games in format "MM-DD-YYYY"
+    :param gamedate: date of the games in format "MM-DD-YYYY"
 
-    date is used throughout url and file names the guide to extracting data
+    gamedate is used throughout url and file names as guide to extracting data
     """
 
+    # subtract 6 hours from today's date for games ending after midnight
     if gamedate is None:
-        gamedate = datetime.date.today().strftime("%m-%d-%Y")
+        gamedate = datetime.datetime.today()
+        gamedate += datetime.timedelta(hours=-6)
+        gamedate = gamedate.strftime("%m-%d-%Y")
 
     yyyymmdd = gamedate[6:10] + gamedate[0:2] + gamedate[3:5]
 
