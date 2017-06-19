@@ -142,6 +142,7 @@ def update_entry_for_game_1(sched_dict, mstr_dict, box_lev_3, homeaway, team):
 
     game_dir = sched_dict['directory']
     gametime = sched_dict['game_time']
+    teamname = sched_dict[homeaway + '_short']
 
     try:
         # grab team schedule from master and add current game
@@ -166,6 +167,7 @@ def update_entry_for_game_1(sched_dict, mstr_dict, box_lev_3, homeaway, team):
     # create complete entry for all team fields including updated team schedule
     entry = {team:
              {'club_name': box_lev_3[homeaway + '_fname'],
+              'club_short': teamname,
               'record': rec,
               'today_1': game_dir,
               'today_1_time': gametime,

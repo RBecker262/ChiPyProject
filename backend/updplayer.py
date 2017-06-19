@@ -188,6 +188,7 @@ def build_pitching_stats(indict):
     walks = 0
     hits = 0
     ip = 0
+    er = 0
     saves = 0
 
     # for each pitching stat found update the associated variable
@@ -204,6 +205,8 @@ def build_pitching_stats(indict):
         hits = int(indict['s_h'])
     if 's_ip' in keylist:
         ip = float(indict['s_ip'])
+    if 'er' in keylist:
+        er = float(indict['s_er'])
     if 'sv' in keylist:
         saves = int(indict['sv'])
 
@@ -213,6 +216,7 @@ def build_pitching_stats(indict):
                     'walks': walks,
                     'hits': hits,
                     'ip': ip,
+                    'er': er,
                     'saves': saves}
 
     return (statkey, pitcherstats)
@@ -233,6 +237,7 @@ def build_batting_stats(indict):
 
     # set initial values in case given keys are not found in dictionary
     hits = 0
+    walks = 0
     hr = 0
     rbi = 0
     runs = 0
@@ -242,6 +247,8 @@ def build_batting_stats(indict):
     # avg stays type string since no math will be done and format is consistent
     if 's_h' in keylist:
         hits = int(indict['s_h'])
+    if 's_bb' in keylist:
+        walks = int(indict['s_bb'])
     if 's_hr' in keylist:
         hr = int(indict['s_hr'])
     if 's_rbi' in keylist:
@@ -252,6 +259,7 @@ def build_batting_stats(indict):
         avg = indict['avg']
 
     batterstats = {'hits': hits,
+                   'walks': walks,
                    'hr': hr,
                    'rbi': rbi,
                    'runs': runs,

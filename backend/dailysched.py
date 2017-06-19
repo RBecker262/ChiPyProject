@@ -130,7 +130,9 @@ def search_dictionary(indict, resultdict):
         entry = {gamecode:
                  {"directory": indict['game_data_directory'] + '/',
                   "away_code": indict['away_code'],
+                  "away_short": indict['away_team_name'],
                   "home_code": indict['home_code'],
+                  "home_short": indict['home_team_name'],
                   "game_time": indict['home_time'] + indict['home_ampm']}}
 
         resultdict.update(entry)
