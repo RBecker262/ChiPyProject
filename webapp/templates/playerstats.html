@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+  <script type="text/javascript">
+    function postForm(obj, players){
+        var idx = obj.rowIndex -1;
+        /* var code = document.getElementById(tid).rows[idx].cells.namedItem(cid).innerHTML; */
+        form = document.forms['playerstats'];
+        form.elements['playercode'].value = players[idx]['code']
+        form.submit();}
+  </script>
+    <form action="" method="post" name="playerstats" style="width:80%">
+      {% if batters %}
+        <table id="HT" class="center" style="width:90%">
+          <tr style="font-size:20px;">
+            <th width="13%" style="text-align:left;"><u>Hitting</u></th>
+            <th width="22%" style="text-align:left;"><u>Player</u></th>
+            <th width="7%"  style="text-align:center;"><u>AVG</u></th>
+            <th width="7%"  style="text-align:center;"><u>Hits</u></th>
+            <th width="7%"  style="text-align:center;"><u>BB</u></th>
+            <th width="7%"  style="text-align:center;"><u>HR</u></th>
+            <th width="7%"  style="text-align:center;"><u>RBI</u></th>
+            <th width="7%"  style="text-align:center;"><u>Runs</u></th>
+            <th width="12%" style="text-align:center;"><u>Position</u></th>
+          </tr>
+          {% for batter in batters %}
+            <tr class="clickable" onclick="postForm(this, {{ batters }})" style="font-size:18px;">
+              <td style="text-align:left;">{{ batter['team'] }}</td>
+              <td style="text-align:left;">{{ batter['name'] }}</td>
+              <td style="text-align:center;">{{ batter['avg'] }}</td>
+              <td style="text-align:center;">{{ batter['hits'] }}</td>
+              <td style="text-align:center;">{{ batter['walks'] }}</td>
+              <td style="text-align:center;">{{ batter['hr'] }}</td>
+              <td style="text-align:center;">{{ batter['rbi'] }}</td>
+              <td style="text-align:center;">{{ batter['runs'] }}</td>
+              <td style="text-align:center;">{{ batter['pos'] }}</td>
+            </tr>
+          {% endfor %}
+      </table>
+      <hr>
+      {% endif %}
+      {% if pitchers %}
+      <table id="PT" class="center" style="width:90%">
+        <tr style="font-size:20px;">
+          <th width="13%" style="text-align:left;"><u>Pitching</u></th>
+          <th width="22%" style="text-align:left;"><u>Pitcher</u></th>
+          <th width="7%" style="text-align:center;"><u>Wins</u></th>
+          <th width="7%" style="text-align:center;"><u>ERA</u></th>
+          <th width="7%" style="text-align:center;"><u>IP</u></th>
+          <th width="7%"  style="text-align:center;"><u>Hits</u></th>
+          <th width="7%"  style="text-align:center;"><u>SO</u></th>
+          <th width="7%" style="text-align:center;"><u>BB</u></th>
+          <th width="6%" style="text-align:center;"><u>Saves</u></th>
+          <th width="6%" style="text-align:center;"><u>ER</u></th>
+        </tr>
+        {% for pitcher in pitchers %}
+          <tr class="clickable" onclick="postForm(this, {{ pitchers }})" style="font-size:18px;">
+            <td style="text-align:left;">{{ pitcher['team'] }}</td>
+            <td style="text-align:left;">{{ pitcher['name'] }}</td>
+            <td style="text-align:center;">{{ pitcher['wins'] }}</td>
+            <td style="text-align:center;">{{ pitcher['era'] }}</td>
+            <td style="text-align:center;">{{ pitcher['ip'] }}</td>
+            <td style="text-align:center;">{{ pitcher['hits'] }}</td>
+            <td style="text-align:center;">{{ pitcher['so'] }}</td>
+            <td style="text-align:center;">{{ pitcher['walks'] }}</td>
+            <td style="text-align:center;">{{ pitcher['saves'] }}</td>
+            <td style="text-align:center;">{{ pitcher['er'] }}</td>
+          </tr>
+        {% endfor %}
+      </table>
+      <hr>
+      {% endif %}
+      <span style="visibility:collapse;">
+        {{ form.hidden_tag() }}{{ form.playercode }}
+      </span>
+    </form>
+{% endblock %}
