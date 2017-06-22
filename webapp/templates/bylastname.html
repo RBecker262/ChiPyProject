@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+  <form action="" method="post">
+    <p style="text-align:center;font-size:18px;">Last Name: {{ form.lastname(size=20) }}
+      <input type="submit" style="font-size:18px;" value="Search Names">
+    </p>
+    {{ form.hidden_tag() }}
+  </form>
+{% endblock %}

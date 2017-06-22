@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+  <script type="text/javascript">
+    function postForm(obj, teams){
+        var idx = obj.rowIndex -1;
+        /*  var code = document.getElementById("BT").rows[idx].cells.namedItem('TC').innerHTML; */
+        form = document.forms['byteam'];
+        form.elements['teamcode'].value = teams[idx]['code']
+        form.submit();}
+  </script>
+    <form action="" method="post" name="byteam" style="width:65%;">
+      <table id="BT" class="center" style="width:100%">
+        <tr style="font-size:20px;">
+          <th width="28%" style="text-align:center;">Team</th>
+          <th width="15%" style="text-align:center;">Record</th>
+          <th width="33%" style="text-align:center;">Today's Opponent</th>
+          <th width="28%" style="text-align:center;">Game Time</th>
+        </tr>
+        {% for team in teams %}
+          <tr class="clickable" onclick="postForm(this, {{teams}})" style="font-size:18px;">
+            <td style="text-align:left;">{{ team['club'] }}</td>
+            <td style="text-align:center;">{{ team['record'] }}</td>
+            <td style="text-align:left;">{{ team['opponent'] }}</td>
+            <td style="text-align:center;">{{ team['time'] }}</td>
+          </tr>
+        {% endfor %}
+      </table>
+      <hr>
+      <span style="visibility:collapse;">
+        {{ form.hidden_tag() }}{{ form.teamcode }}
+      </span>
+    </form>
+{% endblock %}
