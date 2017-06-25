@@ -17,6 +17,7 @@ import argparse
 import logging
 import logging.config
 import datetime
+import time
 import dailysched
 import updteam
 import updplayer
@@ -101,13 +102,28 @@ def main(gamedate=None):
         # create the daily schedule for the given date
         rc = dailysched.invoke_dailysched_as_sub(date_of_game)
 
+        # rc 0 from dailysched - everything is perfect
+        # rc 20 from dailysched - master scoreboard not ready yet, this is ok
+        # anything else is critical error and process needs to stop
+        if rc not in (0, 20):
+            return rc
+
         # if the date's schedule is good then update master files
         if rc == 0:
             # update team master
             rc = updteam.invoke_updteam_as_sub(date_of_game)
+            if rc != 0:
+                return rc
 
             # update player master
             rc = updplayer.invoke_updplayer_as_sub(date_of_game)
+            if rc != 0:
+                return rc
+
+        # sleep 5 seconds to avoid throttle from MLB only when running catchup
+        if currentdate < enddate:
+            logger.info('Sleeping 5 seconds.....')
+            time.sleep(5)
 
         # bump the current date up by 1 day
         currentdate += datetime.timedelta(days=1)
