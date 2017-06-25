@@ -16,12 +16,12 @@ import sys
 import os
 import shutil
 import argparse
-import configparser
 import logging
 import logging.config
 import datetime
 import json
 import requests
+import myutils
 
 
 # setup global variables
@@ -31,14 +31,6 @@ DAILY_SCHEDULE = 'schedule_YYYYMMDD.json'
 TEAM_MSTR_I = 'teamMaster.json'
 TEAM_MSTR_O = 'teamMaster_YYYYMMDD.json'
 BOXSCORE = 'http://gd2.mlb.com/_directory_/boxscore.json'
-
-
-class ConfigLoadError(ValueError):
-    pass
-
-
-class ConfigKeyError(ValueError):
-    pass
 
 
 class LoadDictionaryError(ValueError):
@@ -73,35 +65,6 @@ def get_command_arguments():
     logger.info('Command arguments: ' + str(argue.game_date))
 
     return argue
-
-
-def get_data_directory(config_file):
-    """
-    load config file to retrieve directory path for data files
-    """
-
-    logger.info('Config file location: ' + config_file)
-
-    config = configparser.ConfigParser()
-
-    # open config file to verify existence, then read and return
-    try:
-        config.read_file(open(config_file))
-        config.read(config_file)
-    except Exception as e:
-        errmsg = 'Error loading Configuration file. . .'
-        logger.critical(errmsg)
-        logger.exception(e)
-        raise ConfigLoadError(errmsg)
-
-    # verify DataPath key exists before setting path location
-    if config.has_option("DirectoryPaths", "DataPath"):
-        path = config.get("DirectoryPaths", "DataPath")
-        return path
-    else:
-        errmsg = 'Config DataPath key missing from DirectoryPaths section'
-        logger.critical(errmsg)
-        raise ConfigKeyError(errmsg)
 
 
 def determine_filenames(gamedate=None):
@@ -406,10 +369,13 @@ def main(gamedate=None):
 
     # get the data directory from the config file
     try:
-        path = get_data_directory(CONFIG_INI)
-    except ConfigLoadError:
+        section = "DirectoryPaths"
+        key = "DataPath"
+        config = myutils.load_config_file(CONFIG_INI, logger)
+        path = myutils.get_config_value(config, logger, section, key)
+    except myutils.ConfigLoadError:
         return 1
-    except ConfigKeyError:
+    except myutils.ConfigKeyError:
         return 2
 
     io = determine_filenames(gamedate)
