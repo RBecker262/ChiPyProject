@@ -16,6 +16,7 @@ import sys
 import os
 import shutil
 import argparse
+import configparser
 import logging
 import logging.config
 import datetime
@@ -25,10 +26,19 @@ import requests
 
 # setup global variables
 LOGGING_INI = 'updteam_logging.ini'
-DAILY_SCHEDULE = '../Data/schedule_YYYYMMDD.json'
-TEAM_MSTR_I = '../Data/teamMaster.json'
-TEAM_MSTR_O = '../Data/teamMaster_YYYYMMDD.json'
+CONFIG_INI = 'backend_config.ini'
+DAILY_SCHEDULE = 'schedule_YYYYMMDD.json'
+TEAM_MSTR_I = 'teamMaster.json'
+TEAM_MSTR_O = 'teamMaster_YYYYMMDD.json'
 BOXSCORE = 'http://gd2.mlb.com/_directory_/boxscore.json'
+
+
+class ConfigLoadError(ValueError):
+    pass
+
+
+class ConfigKeyError(ValueError):
+    pass
 
 
 class LoadDictionaryError(ValueError):
@@ -63,6 +73,35 @@ def get_command_arguments():
     logger.info('Command arguments: ' + str(argue.game_date))
 
     return argue
+
+
+def get_data_directory(config_file):
+    """
+    load config file to retrieve directory path for data files
+    """
+
+    logger.info('Config file location: ' + config_file)
+
+    config = configparser.ConfigParser()
+
+    # open config file to verify existence, then read and return
+    try:
+        config.read_file(open(config_file))
+        config.read(config_file)
+    except Exception as e:
+        errmsg = 'Error loading Configuration file. . .'
+        logger.critical(errmsg)
+        logger.exception(e)
+        raise ConfigLoadError(errmsg)
+
+    # verify DataPath key exists before setting path location
+    if config.has_option("DirectoryPaths", "DataPath"):
+        path = config.get("DirectoryPaths", "DataPath")
+        return path
+    else:
+        errmsg = 'Config DataPath key missing from DirectoryPaths section'
+        logger.critical(errmsg)
+        raise ConfigKeyError(errmsg)
 
 
 def determine_filenames(gamedate=None):
@@ -307,7 +346,7 @@ def process_schedule(sched_dict, mstr_dict):
     # delete todays games in team master since we are rebuilding today
     # get list of game ids from schedule (key) and init todays daily master
     mstr_dict = reset_todays_games_in_master(mstr_dict)
-    gameidlist = list(sched_dict)
+    gameidlist = sorted(sched_dict.keys())
     daily_team_dict = {}
 
     # for each key, go to boxscore for that game and exctract all team data
@@ -365,9 +404,18 @@ def main(gamedate=None):
     - this gives us a new master after each udpate and a snapshot at end of day
     """
 
+    # get the data directory from the config file
+    try:
+        path = get_data_directory(CONFIG_INI)
+    except ConfigLoadError:
+        return 1
+    except ConfigKeyError:
+        return 2
+
     io = determine_filenames(gamedate)
-    schedule_in = io[0]
-    team_out = io[1]
+    schedule_in = path + '/' + io[0]
+    team_out = path + '/' + io[1]
+    team_in = path + '/' + TEAM_MSTR_I
 
     # load daily schedule dictionary into memory, must exist or will bypass
     try:
@@ -377,7 +425,7 @@ def main(gamedate=None):
 
     # load team master dictionary into memory
     try:
-        with open(TEAM_MSTR_I, 'r') as teamMaster:
+        with open(team_in, 'r') as teamMaster:
             team_mstr_dict = json.load(teamMaster)
     # if no master build one from scratch
     except Exception:
@@ -396,7 +444,7 @@ def main(gamedate=None):
                   sort_keys=True, indent=4, ensure_ascii=False)
 
     # copy snapshot to master file name for ongoing updates through the season
-    shutil.copy(team_out, TEAM_MSTR_I)
+    shutil.copy(team_out, team_in)
 
     return 0
 
