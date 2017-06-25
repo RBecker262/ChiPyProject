@@ -14,6 +14,7 @@ Create output file with all schedules for the given date
 import sys
 import os
 import argparse
+import configparser
 import logging
 import logging.config
 import datetime
@@ -23,11 +24,20 @@ import requests
 
 # setup global variables
 LOGGING_INI = 'dailysched_logging.ini'
-DAILY_SCHEDULE = '../Data/schedule_YYYYMMDD.json'
+CONFIG_INI = 'backend_config.ini'
+DAILY_SCHEDULE = 'schedule_YYYYMMDD.json'
 URL1 = 'http://gd2.mlb.com/components/game/mlb/year_YYYY'
 URL2 = '/month_MM'
 URL3 = '/day_DD'
 URL4 = '/master_scoreboard.json'
+
+
+class ConfigLoadError(ValueError):
+    pass
+
+
+class ConfigKeyError(ValueError):
+    pass
 
 
 class LoadDictionaryError(ValueError):
@@ -62,6 +72,35 @@ def get_command_arguments():
     logger.info('Command arguments: ' + str(argue.game_date))
 
     return argue
+
+
+def get_data_directory(config_file):
+    """
+    load config file to retrieve directory path for data files
+    """
+
+    logger.info('Config file location: ' + config_file)
+
+    config = configparser.ConfigParser()
+
+    # open config file to verify existence, then read and return
+    try:
+        config.read_file(open(config_file))
+        config.read(config_file)
+    except Exception as e:
+        errmsg = 'Error loading Configuration file. . .'
+        logger.critical(errmsg)
+        logger.exception(e)
+        raise ConfigLoadError(errmsg)
+
+    # verify DataPath key exists before setting path location
+    if config.has_option("DirectoryPaths", "DataPath"):
+        path = config.get("DirectoryPaths", "DataPath")
+        return path
+    else:
+        errmsg = 'Config DataPath key missing from DirectoryPaths section'
+        logger.critical(errmsg)
+        raise ConfigKeyError(errmsg)
 
 
 def determine_filenames(gamedate=None):
@@ -191,10 +230,23 @@ def invoke_dailysched_as_sub(gamedate=None):
 
 def main(gamedate=None):
 
+    # get the data directory from the config file
+    try:
+        path = get_data_directory(CONFIG_INI)
+    except ConfigLoadError:
+        return 1
+    except ConfigKeyError:
+        return 2
+
+    # if the data directory does not exist then create it
+    if not os.path.isdir(path):
+        logger.info('Creating data directory: ' + path)
+        os.mkdir(path)
+
     # setup master scoreboard input and daily schedule output
     io = determine_filenames(gamedate)
     scoreboard_loc = io[0]
-    schedule_out = io[1]
+    schedule_out = path + '/' + io[1]
     date_of_games = io[2]
 
     # load master scoreboard dictionary into memory
