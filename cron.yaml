@@ -1,0 +1,5 @@
+version: 1
+cron:
+ - name: "master-upd"
+   url: "/master"
+   schedule: "*/30 0-10,15-23 * * *"
