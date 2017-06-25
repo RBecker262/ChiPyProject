@@ -21,13 +21,15 @@ import logging.config
 import datetime
 import json
 import requests
+import myutils
 
 
 # setup global variables
 LOGGING_INI = 'updteam_logging.ini'
-DAILY_SCHEDULE = '../Data/schedule_YYYYMMDD.json'
-TEAM_MSTR_I = '../Data/teamMaster.json'
-TEAM_MSTR_O = '../Data/teamMaster_YYYYMMDD.json'
+CONFIG_INI = 'backend_config.ini'
+DAILY_SCHEDULE = 'schedule_YYYYMMDD.json'
+TEAM_MSTR_I = 'teamMaster.json'
+TEAM_MSTR_O = 'teamMaster_YYYYMMDD.json'
 BOXSCORE = 'http://gd2.mlb.com/_directory_/boxscore.json'
 
 
@@ -307,7 +309,7 @@ def process_schedule(sched_dict, mstr_dict):
     # delete todays games in team master since we are rebuilding today
     # get list of game ids from schedule (key) and init todays daily master
     mstr_dict = reset_todays_games_in_master(mstr_dict)
-    gameidlist = list(sched_dict)
+    gameidlist = sorted(sched_dict.keys())
     daily_team_dict = {}
 
     # for each key, go to boxscore for that game and exctract all team data
@@ -365,9 +367,21 @@ def main(gamedate=None):
     - this gives us a new master after each udpate and a snapshot at end of day
     """
 
+    # get the data directory from the config file
+    try:
+        section = "DirectoryPaths"
+        key = "DataPath"
+        config = myutils.load_config_file(CONFIG_INI, logger)
+        path = myutils.get_config_value(config, logger, section, key)
+    except myutils.ConfigLoadError:
+        return 1
+    except myutils.ConfigKeyError:
+        return 2
+
     io = determine_filenames(gamedate)
-    schedule_in = io[0]
-    team_out = io[1]
+    schedule_in = path + '/' + io[0]
+    team_out = path + '/' + io[1]
+    team_in = path + '/' + TEAM_MSTR_I
 
     # load daily schedule dictionary into memory, must exist or will bypass
     try:
@@ -377,7 +391,7 @@ def main(gamedate=None):
 
     # load team master dictionary into memory
     try:
-        with open(TEAM_MSTR_I, 'r') as teamMaster:
+        with open(team_in, 'r') as teamMaster:
             team_mstr_dict = json.load(teamMaster)
     # if no master build one from scratch
     except Exception:
@@ -396,7 +410,7 @@ def main(gamedate=None):
                   sort_keys=True, indent=4, ensure_ascii=False)
 
     # copy snapshot to master file name for ongoing updates through the season
-    shutil.copy(team_out, TEAM_MSTR_I)
+    shutil.copy(team_out, team_in)
 
     return 0
 

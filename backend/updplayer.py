@@ -20,13 +20,15 @@ import logging.config
 import datetime
 import json
 import requests
+import myutils
 
 
 # setup global variables
 LOGGING_INI = 'updplayer_logging.ini'
-DAILY_SCHEDULE = '../Data/schedule_YYYYMMDD.json'
-PLAYER_MSTR_I = '../Data/playerMaster.json'
-PLAYER_MSTR_O = '../Data/playerMaster_YYYYMMDD.json'
+CONFIG_INI = 'backend_config.ini'
+DAILY_SCHEDULE = 'schedule_YYYYMMDD.json'
+PLAYER_MSTR_I = 'playerMaster.json'
+PLAYER_MSTR_O = 'playerMaster_YYYYMMDD.json'
 BOXSCORE = 'http://gd2.mlb.com/_directory_/boxscore.json'
 
 
@@ -137,7 +139,7 @@ def process_schedule(sched_dict):
     """
 
     # get dailysched keys and start with blank player dictionary for today
-    game_id_list = list(sched_dict)
+    game_id_list = sorted(sched_dict.keys())
     daily_player_dict = {}
 
     # for each key, go to boxscore for that game and exctract all player data
@@ -206,7 +208,7 @@ def build_pitching_stats(indict):
     if 's_ip' in keylist:
         ip = float(indict['s_ip'])
     if 'er' in keylist:
-        er = float(indict['s_er'])
+        er = int(indict['s_er'])
     if 'sv' in keylist:
         saves = int(indict['sv'])
 
@@ -453,9 +455,21 @@ def main(gamedate=None):
     - this gives us a new master after each udpate and a snapshot at end of day
     """
 
+    # get the data directory from the config file
+    try:
+        section = "DirectoryPaths"
+        key = "DataPath"
+        config = myutils.load_config_file(CONFIG_INI, logger)
+        path = myutils.get_config_value(config, logger, section, key)
+    except myutils.ConfigLoadError:
+        return 1
+    except myutils.ConfigKeyError:
+        return 2
+
     io = determine_filenames(gamedate)
-    schedule_in = io[0]
-    player_out = io[1]
+    schedule_in = path + '/' + io[0]
+    player_out = path + '/' + io[1]
+    player_in = path + '/' + PLAYER_MSTR_I
 
     # load daily schedule dictionary into memory, must exist or will bypass
     try:
@@ -465,7 +479,7 @@ def main(gamedate=None):
 
     # load player master dictionary into memory
     try:
-        with open(PLAYER_MSTR_I, 'r') as playerMaster:
+        with open(player_in, 'r') as playerMaster:
             player_mstr_dict = json.load(playerMaster)
     # if no master build one from scratch
     except Exception:
@@ -484,7 +498,7 @@ def main(gamedate=None):
                   sort_keys=True, indent=4, ensure_ascii=False)
 
     # copy snapshot to master file name for ongoing updates through the season
-    shutil.copy(player_out, PLAYER_MSTR_I)
+    shutil.copy(player_out, player_in)
 
     return 0
 
