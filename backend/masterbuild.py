@@ -24,23 +24,28 @@ import updplayer
 
 
 # setup global variables
-LOGGING_INI = 'masterbuild_logging.ini'
+LOGGING_INI = 'backend_logging.ini'
 
 
-def init_logger():
+def init_logger(ini_path):
     """
+    :param ini_path: path to ini files
+
     initialize global variable logger and setup log
     """
 
     global logger
 
-    logging.config.fileConfig(LOGGING_INI, disable_existing_loggers=False)
+    log_ini_file = ini_path + LOGGING_INI
+
+    logging.config.fileConfig(log_ini_file, disable_existing_loggers=False)
     logger = logging.getLogger(os.path.basename(__file__))
 
 
 def get_command_arguments():
     """
-    --date  optional, will extract schedules for this date to current date
+    -d or --date  optional, extract schedules for this date to current date
+    -p of --path  optional, provides path of all ini files (must end with /)
     """
 
     parser = argparse.ArgumentParser('Command line arguments')
@@ -50,9 +55,14 @@ def get_command_arguments():
         help='Date of daily schedule for input - mm-dd-yyyy format',
         dest='game_date',
         type=str)
+    parser.add_argument(
+        '-p',
+        '--path',
+        help='Path for all ini files',
+        dest='ini_path',
+        type=str)
 
     argue = parser.parse_args()
-    logger.info('Command line arguments: ' + str(argue.game_date))
 
     return argue
 
@@ -70,14 +80,14 @@ def establish_game_date(gamedate=None):
     # allows master update process to run for current games until 6am next day
     if gamedate is None:
         gamedate = datetime.datetime.today()
-        gamedate += datetime.timedelta(hours=-6)
+        gamedate += datetime.timedelta(hours=-11)
         gamedate = gamedate.strftime("%m-%d-%Y")
 
     # start/end dates must be type datetime to get thru dates in range serially
     startdate = datetime.datetime.strptime(gamedate, "%m-%d-%Y")
 
     enddate = datetime.datetime.today()
-    enddate += datetime.timedelta(hours=-6)
+    enddate += datetime.timedelta(hours=-11)
     enddate = enddate.replace(hour=0, minute=0, second=0, microsecond=0)
 
     logger.info('Updating master files from ' + gamedate + ' thru current day')
@@ -85,7 +95,14 @@ def establish_game_date(gamedate=None):
     return (startdate, enddate)
 
 
-def main(gamedate=None):
+def main(gamedate, arg_path):
+
+    if arg_path is None:
+        ini_path = ''
+    else:
+        ini_path = arg_path
+
+    init_logger(ini_path)
 
     dates = establish_game_date(gamedate)
     currentdate = dates[0]
@@ -100,7 +117,7 @@ def main(gamedate=None):
         logger.info('Building schedule and master files for: ' + date_of_game)
 
         # create the daily schedule for the given date
-        rc = dailysched.invoke_dailysched_as_sub(date_of_game)
+        rc = dailysched.invoke_dailysched_as_sub(date_of_game, arg_path)
 
         # rc 0 from dailysched - everything is perfect
         # rc 20 from dailysched - master scoreboard not ready yet, this is ok
@@ -111,12 +128,12 @@ def main(gamedate=None):
         # if the date's schedule is good then update master files
         if rc == 0:
             # update team master
-            rc = updteam.invoke_updteam_as_sub(date_of_game)
+            rc = updteam.invoke_updteam_as_sub(date_of_game, arg_path)
             if rc != 0:
                 return rc
 
             # update player master
-            rc = updplayer.invoke_updplayer_as_sub(date_of_game)
+            rc = updplayer.invoke_updplayer_as_sub(date_of_game, arg_path)
             if rc != 0:
                 return rc
 
@@ -132,12 +149,10 @@ def main(gamedate=None):
 
 
 if __name__ == '__main__':
-    init_logger()
-    logger.info('Executing script as main function')
 
     args = get_command_arguments()
 
-    cc = main(args.game_date)
+    cc = main(args.game_date, args.ini_path)
 
     logger.info('Script completion code: ' + str(cc))
     sys.exit(cc)
