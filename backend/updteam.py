@@ -25,7 +25,7 @@ import myutils
 
 
 # setup global variables
-LOGGING_INI = 'updteam_logging.ini'
+LOGGING_INI = 'backend_logging.ini'
 CONFIG_INI = 'backend_config.ini'
 DAILY_SCHEDULE = 'schedule_YYYYMMDD.json'
 TEAM_MSTR_I = 'teamMaster.json'
@@ -37,20 +37,25 @@ class LoadDictionaryError(ValueError):
     pass
 
 
-def init_logger():
+def init_logger(ini_path):
     """
+    :param ini_path: path to ini files
+
     initialize global variable logger and setup log
     """
 
     global logger
 
-    logging.config.fileConfig(LOGGING_INI, disable_existing_loggers=False)
+    log_ini_file = ini_path + LOGGING_INI
+
+    logging.config.fileConfig(log_ini_file, disable_existing_loggers=False)
     logger = logging.getLogger(os.path.basename(__file__))
 
 
 def get_command_arguments():
     """
-    -d or --date  optional, will extract schedules for this date if provided
+    -d or --date  optional, extract player stats for this date if provided
+    -p of --path  optional, provides path of all ini files (must end with /)
     """
 
     parser = argparse.ArgumentParser('Command line arguments')
@@ -60,9 +65,14 @@ def get_command_arguments():
         help='Date of daily schedule for input - mm-dd-yyyy format',
         dest='game_date',
         type=str)
+    parser.add_argument(
+        '-p',
+        '--path',
+        help='Path for all ini files',
+        dest='ini_path',
+        type=str)
 
     argue = parser.parse_args()
-    logger.info('Command arguments: ' + str(argue.game_date))
 
     return argue
 
@@ -77,7 +87,7 @@ def determine_filenames(gamedate=None):
     # subtract 6 hours from today's date for games ending after midnight
     if gamedate is None:
         gamedate = datetime.datetime.today()
-        gamedate += datetime.timedelta(hours=-6)
+        gamedate += datetime.timedelta(hours=-11)
         gamedate = gamedate.strftime("%m-%d-%Y")
 
     yyyymmdd = gamedate[6:10] + gamedate[0:2] + gamedate[3:5]
@@ -339,23 +349,22 @@ def process_schedule(sched_dict, mstr_dict):
     return daily_team_dict
 
 
-def invoke_updteam_as_sub(gamedate=None):
+def invoke_updteam_as_sub(gamedate, arg_path):
     """
     :param gamedate: date of the games in format "MM-DD-YYYY"
+    :param arg_path: path to ini files
 
     This routine is invoked when running as imported function vs main driver
     """
 
-    init_logger()
-    logger.info('Executing script as sub-function')
-    rc = main(gamedate)
+    rc = main(gamedate, arg_path)
 
-    logger.info('Script completion code: ' + str(rc))
+    logger.info('Script as function completion code: ' + str(rc))
 
     return rc
 
 
-def main(gamedate=None):
+def main(gamedate, arg_path):
     """
     main process to update the team master
     determine file and url names based on date of games
@@ -367,21 +376,28 @@ def main(gamedate=None):
     - this gives us a new master after each udpate and a snapshot at end of day
     """
 
+    if arg_path is None:
+        ini_path = ''
+    else:
+        ini_path = arg_path
+
+    init_logger(ini_path)
+
     # get the data directory from the config file
     try:
         section = "DirectoryPaths"
         key = "DataPath"
-        config = myutils.load_config_file(CONFIG_INI, logger)
-        path = myutils.get_config_value(config, logger, section, key)
+        config = myutils.load_config_file(ini_path + CONFIG_INI, logger)
+        data_path = myutils.get_config_value(config, logger, section, key)
     except myutils.ConfigLoadError:
         return 1
     except myutils.ConfigKeyError:
         return 2
 
     io = determine_filenames(gamedate)
-    schedule_in = path + '/' + io[0]
-    team_out = path + '/' + io[1]
-    team_in = path + '/' + TEAM_MSTR_I
+    schedule_in = data_path + io[0]
+    team_out = data_path + io[1]
+    team_in = data_path + TEAM_MSTR_I
 
     # load daily schedule dictionary into memory, must exist or will bypass
     try:
@@ -410,18 +426,16 @@ def main(gamedate=None):
                   sort_keys=True, indent=4, ensure_ascii=False)
 
     # copy snapshot to master file name for ongoing updates through the season
-    shutil.copy(team_out, team_in)
+    shutil.move(team_out, team_in)
 
     return 0
 
 
 if __name__ == '__main__':
-    init_logger()
-    logger.info('Executing script as main function')
 
     args = get_command_arguments()
 
-    cc = main(args.game_date)
+    cc = main(args.game_date, args.ini_path)
 
-    logger.info('Script completion code: ' + str(cc))
+    logger.info('Script as main completion code: ' + str(cc))
     sys.exit(cc)
