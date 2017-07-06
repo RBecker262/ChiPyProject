@@ -135,8 +135,7 @@ def get_today_stats(box_url, homeaway, playercode):
     determine if player's team is home or away today
     find him in batting and/or pitching subdictionaries and save stats
     """
-    print('Player to retrieve.... ' + playercode)
-    print(type(playercode))
+
     playerdata = {}
 
     try:
@@ -151,7 +150,7 @@ def get_today_stats(box_url, homeaway, playercode):
         loc = 'away'
 
     # loop twice, once for each team, player is either home or away
-    for x in range(0, 2):
+    for x in range(0, 1):
 
         # match batting dictionary list item with player home or away value
         if box['batting'][x]['team_flag'] == loc:
