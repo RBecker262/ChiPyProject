@@ -102,6 +102,8 @@ def playerstats(teamcode=None, lastname=None, displastname=False):
         list = apifuncs.get_player_stats(url)
         batters = list[0]
         pitchers = list[1]
+        avg_ab = 'AVG'
+        ip_outs = 'IP'
         form.displastname.data = displastname
         flash("Season stats displayed, toggle player row for today's stats")
 
@@ -114,6 +116,8 @@ def playerstats(teamcode=None, lastname=None, displastname=False):
         list = apifuncs.get_player_stats(url)
         batters = list[0]
         pitchers = list[1]
+        avg_ab = 'AVG'
+        ip_outs = 'IP'
         flash("Season stats displayed, toggle player row for today's stats")
 
     elif playercode is not None and str(playercode).strip() != '':
@@ -125,6 +129,8 @@ def playerstats(teamcode=None, lastname=None, displastname=False):
         list = apifuncs.get_player_stats(url)
         batters = list[0]
         pitchers = list[1]
+        avg_ab = 'AB'
+        ip_outs = 'Outs'
         form.playercode.data = playercode
         flash('Stats from games played today')
 
@@ -137,11 +143,15 @@ def playerstats(teamcode=None, lastname=None, displastname=False):
             list = apifuncs.get_player_stats(url)
             batters = list[0]
             pitchers = list[1]
+            avg_ab = 'AVG'
+            ip_outs = 'IP'
             msg = "Season stats displayed, toggle player row for today's stats"
             flash(msg)
         else:
             batters = []
             pitchers = []
+            avg_ab = 'AVG'
+            ip_outs = 'IP'
             errors = True
             flash('Enter at least 1 letter of player last name:')
 
@@ -151,7 +161,9 @@ def playerstats(teamcode=None, lastname=None, displastname=False):
                            batters=batters,
                            pitchers=pitchers,
                            displastname=displastname,
-                           errors=errors)
+                           errors=errors,
+                           avgab=avg_ab,
+                           ipouts=ip_outs)
 
 
 @webapp.route('/WatchList')
