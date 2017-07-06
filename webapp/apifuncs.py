@@ -9,6 +9,27 @@ import requests
 import json
 
 
+class LoadDictionaryError(ValueError):
+    pass
+
+
+def load_dictionary_from_url(dict_url):
+    """
+    :param dict_url: url of online dictionary to be loaded
+
+    try loading dictionary and return to caller, raise error if any issue
+    """
+
+    try:
+        dictresp = requests.get(dict_url)
+        dictload = json.loads(dictresp.text)
+    except Exception:
+        errmsg = 'Dictionary not available'
+        raise LoadDictionaryError(errmsg)
+
+    return dictload
+
+
 def get_season_stats(api_url):
     """
     :param api_url: specific url used to get player stats
@@ -100,3 +121,234 @@ def get_batting_stats(plyr_data, key, team):
         batting = None
 
     return batting
+
+
+def get_today_stats(box_url, homeaway, playercode):
+    """
+    :param box_url:     MLB url of boxscore for this game to get player data
+    :param homeaway:    vs = home, at = away
+    :param playercode:  player code to find within boxscore
+
+    load boxscore dictionary then loop thru pitching and batting sections
+    boxscore may not be available yet which is valid, so return empty result
+    determine if player's team is home or away today
+    find him in batting and/or pitching subdictionaries and save stats
+    """
+
+    playerdata = {}
+
+    try:
+        box_dict = load_dictionary_from_url(box_url)
+        box = box_dict['data']['boxscore']
+    except Exception:
+        return playerdata
+
+    if homeaway == 'vs':
+        loc = 'home'
+    else:
+        loc = 'away'
+
+    # loop twice, once for each team, player is either home or away
+    for x in range(0, 2):
+
+        # match batting dictionary list item with player home or away value
+        if box['batting'][x]['team_flag'] == loc:
+            for p in range(0, len(box['batting'][x]['batter'])):
+                if box['batting'][x]['batter'][p]['name'] == playercode:
+                    playerdata.update({"batting":
+                                       box['batting'][x]['batter'][p]})
+
+        # match pitching dictionary list item with player home or away value
+        if box['pitching'][x]['team_flag'] == loc:
+            for p in range(0, len(box['pitching'][x]['pitcher'])):
+                if box['pitching'][x]['pitcher'][p]['name'] == playercode:
+                    playerdata.update({"pitching":
+                                       box['pitching'][x]['pitcher'][p]})
+
+    return playerdata
+
+
+def add_todays_results(result1, result2, playercode, fullname, pos, clubname):
+    """
+    :param result1:    player stats from game1 (if he played)
+    :param result2:    player stats from game2 (if he played)
+    :param playercode: player key to player master
+    :param fullname:   player full name
+    :param pos:        position played
+    :param clubname:   team short name
+
+    add stats from each game, player might have data in both, neither or just 1
+    player might have hitting or pitching stats, or both, or neither, by game
+    """
+
+    batting = add_todays_batting(result1,
+                                 result2,
+                                 playercode,
+                                 fullname,
+                                 pos,
+                                 clubname)
+
+    pitching = add_todays_pitching(result1,
+                                   result2,
+                                   playercode,
+                                   fullname,
+                                   clubname)
+
+    result = {"batters": batting, "pitchers": pitching}
+
+    return result
+
+
+def add_todays_batting(result1, result2, playercode, fullname, pos, clubname):
+    """
+    :param result1:    player stats from game1 (if he played)
+    :param result2:    player stats from game2 (if he played)
+    :param playercode: player key to player master
+    :param fullname:   player full name
+    :param pos:        position played
+    :param clubname:   team short name
+
+    add stats from each game, player might have data in both, neither or just 1
+    """
+
+    # set initial values to have a basis for doing math
+    bhits = 0
+    bwalks = 0
+    hr = 0
+    rbi = 0
+    runs = 0
+    avg = 0
+
+    # for each batting stat found update the associated variable
+    # avg is field name in html but for todays stats will hold At Bats instead
+    # column heading will reflect AVG or AB based on which stats are displayed
+    if 'batting' in result1.keys():
+        keylist = result1['batting'].keys()
+        if 'h' in keylist:
+            bhits += int(result1['batting']['h'])
+        if 'bb' in keylist:
+            bwalks += int(result1['batting']['bb'])
+        if 'hr' in keylist:
+            hr += int(result1['batting']['hr'])
+        if 'rbi' in keylist:
+            rbi += int(result1['batting']['rbi'])
+        if 'r' in keylist:
+            runs += int(result1['batting']['r'])
+        if 'ab' in keylist:
+            avg += int(result1['batting']['ab'])
+
+    if 'batting' in result2.keys():
+        keylist = result2['batting'].keys()
+        if 'h' in keylist:
+            bhits += int(result2['batting']['h'])
+        if 'bb' in keylist:
+            bwalks += int(result2['batting']['bb'])
+        if 'hr' in keylist:
+            hr += int(result2['batting']['hr'])
+        if 'rbi' in keylist:
+            rbi += int(result2['batting']['rbi'])
+        if 'r' in keylist:
+            runs += int(result2['batting']['r'])
+        if 'ab' in keylist:
+            avg += int(result2['batting']['ab'])
+
+    # if all stats added together are at least 1 then player batted today
+    # if all stats added together = 0 then he did not bat
+    if (bhits + bwalks + hr + rbi + runs + avg) > 0:
+        batting = {playercode:
+                   {"name": fullname,
+                    "team": clubname,
+                    "pos": pos,
+                    "avg": avg,
+                    "hits": bhits,
+                    "hr": hr,
+                    "rbi": rbi,
+                    "runs": runs,
+                    "walks": bwalks,
+                    "code": playercode}}
+
+    return batting
+
+
+def add_todays_pitching(result1, result2, playercode, fullname, clubname):
+    """
+    :param result1:    player stats from game1 (if he played)
+    :param result2:    player stats from game2 (if he played)
+    :param playercode: player key to player master
+    :param fullname:   player full name
+    :param clubname:   team short name
+
+    add stats from each game, player might have data in both, neither or just 1
+    """
+
+    # set initial values to have a basis for doing math
+    wins = 0
+    so = 0
+    era = 0
+    pwalks = 0
+    phits = 0
+    ip = 0
+    er = 0
+    saves = 0
+
+    # for each pitching stat found update the associated variable
+    # innings pitched for today is counted as outs but will use same column
+    # column heading will reflect Outs or IP based on which stats are displayed
+    # era is calculated to 2 decimals based on outs and earned runs
+    if 'pitching' in result1.keys():
+        keylist = result1['pitching'].keys()
+        if 'win' in keylist and result1['pitching']['win']:
+            wins += 1
+        if 'so' in keylist:
+            so += int(result1['pitching']['so'])
+        if 'bb' in keylist:
+            pwalks += int(result1['pitching']['bb'])
+        if 'h' in keylist:
+            phits += int(result1['pitching']['h'])
+        if 'out' in keylist:
+            ip += int(result1['pitching']['out'])
+        if 'er' in keylist:
+            er += int(result1['pitching']['er'])
+        if 'save' in keylist and result1['pitching']['save']:
+            saves += 1
+        if ip > 0:
+            ert = (27 / ip) * er
+            era = str("{:.2f}".format(ert))
+
+    if 'pitching' in result2.keys():
+        keylist = result2['pitching'].keys()
+        if 'win' in keylist and result2['pitching']['win']:
+            wins += 1
+        if 'so' in keylist:
+            so += int(result2['pitching']['so'])
+        if 'bb' in keylist:
+            pwalks += int(result2['pitching']['bb'])
+        if 'h' in keylist:
+            phits += int(result2['pitching']['h'])
+        if 'out' in keylist:
+            ip += int(result2['pitching']['out'])
+        if 'er' in keylist:
+            er += int(result2['pitching']['er'])
+        if 'save' in keylist and result2['pitching']['save']:
+            saves += 1
+        if ip > 0:
+            ert = (27 / ip) * er
+            era = str("{:.2f}".format(ert))
+
+    # if all stats added together are at least 1 then player pitched today
+    # if all stats added together = 0 then he did not pitch
+    if (wins + so + pwalks + phits + ip + er + saves) > 0:
+        pitching = {playercode:
+                    {"name": fullname,
+                     "team": clubname,
+                     "wins": wins,
+                     "era": era,
+                     "er": er,
+                     "ip": ip,
+                     "hits": phits,
+                     "so": so,
+                     "walks": pwalks,
+                     "saves": saves,
+                     "code": playercode}}
+
+    return pitching

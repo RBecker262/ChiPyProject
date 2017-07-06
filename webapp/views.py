@@ -6,11 +6,13 @@ from .forms import HomeForm, AboutForm, ByLastNameForm, ByTeamForm
 from .forms import PlayerStatsForm, WatchListForm, VanAllanEffectForm
 from webapp import apifuncs
 
-DATA_FOLDER = '/usr/tmp/data/'
+# DATA_FOLDER = '/usr/tmp/data/'
+DATA_FOLDER = '../Data/'
 TEAM_MSTR_I = DATA_FOLDER + 'teamMaster.json'
 PLYR_MSTR_I = DATA_FOLDER + 'playerMaster.json'
-
-API_SERVER = 'http://thesandlot-env.aquapjmcqz.us-east-2.elasticbeanstalk.com'
+BOXSCORE = 'http://gd2.mlb.com/_directory_/boxscore.json'
+# API_SERVER = '://thesandlot-env.aquapjmcqz.us-east-2.elasticbeanstalk.com'
+API_SERVER = 'http://127.0.0.1:5000'
 
 
 @webapp.route('/')
@@ -42,12 +44,12 @@ def byteam():
     url = API_SERVER + '/API_allteams'
     api_resp = requests.get(url)
     api_str = api_resp.content.decode()
-    loaded_result = json.loads(api_str)
+    loaded = json.loads(api_str)
 
     # load teams dictionary entries into list sorted on teamcode (team key)
     teams = []
-    for key in sorted(loaded_result.keys()):
-        teams.append(loaded_result[key])
+    for key in sorted(loaded.keys()):
+        teams.append(loaded[key])
 
     flash('Click on row to view team roster / stats')
     return render_template("byteam.html", form=form, teams=teams, errors=False)
@@ -99,7 +101,7 @@ def playerstats(teamcode=None, lastname=None, displastname=False):
     if request.method == "GET" and teamcode:
         # request to display all players for team, call teamplayers api
         url = API_SERVER + '/API_teamplayers/' + teamcode
-        list = apifuncs.get_season_stats(url)
+        list = apifuncs.get_player_stats(url)
         batters = list[0]
         pitchers = list[1]
         form.displastname.data = displastname
@@ -111,7 +113,7 @@ def playerstats(teamcode=None, lastname=None, displastname=False):
         form.displastname.data = displastname
         form.lastname.data = lastname
         url = API_SERVER + '/API_lastname/' + lastname
-        list = apifuncs.get_season_stats(url)
+        list = apifuncs.get_player_stats(url)
         batters = list[0]
         pitchers = list[1]
         flash("Season stats displayed, toggle player row for today's stats")
@@ -121,10 +123,10 @@ def playerstats(teamcode=None, lastname=None, displastname=False):
         displastname = form.displastname.data
         if displastname is not None:
             lastname = form.lastname.data
-        # batters = apitemp.get_batters_today(playercode)
-        # pitchers = apitemp.get_pitchers_today(playercode)
-        batters = []
-        pitchers = []
+        url = API_SERVER + '/API_todaystats/' + playercode
+        list = apifuncs.get_player_stats(url)
+        batters = list[0]
+        pitchers = list[1]
         form.playercode.data = playercode
         flash('Stats from games played today')
 
@@ -134,7 +136,7 @@ def playerstats(teamcode=None, lastname=None, displastname=False):
         lastname = form.lastname.data
         if request.method == 'POST' and len(lastname.strip()) > 0:
             url = API_SERVER + '/API_lastname/' + lastname
-            list = apifuncs.get_season_stats(url)
+            list = apifuncs.get_player_stats(url)
             batters = list[0]
             pitchers = list[1]
             msg = "Season stats displayed, toggle player row for today's stats"
@@ -337,6 +339,51 @@ def api_lastname(lastname):
 
     # create dictionary result with a section for each, batters and pitchers
     result = {"batters": batters, "pitchers": pitchers}
+
+    # convert dictionary result to a string and return
+    result_str = json.dumps(result)
+    return result_str
+
+
+@webapp.route('/API_todaystats/<string:playercode>', methods=['GET'])
+def api_todaystats(playercode):
+    """
+    :param playercode: identifies player for which to retrieve today's stats
+
+    retrieves today's stats for a specific player selected
+    """
+
+    with open(PLYR_MSTR_I, 'r') as playerMaster:
+        players = json.load(playerMaster)
+
+    with open(TEAM_MSTR_I, 'r') as teamMaster:
+        teams = json.load(teamMaster)
+
+    teamcode = players[playercode]['club_code']
+    result1 = {}
+    result2 = {}
+
+    # if a game is scheduled (link on team master), get stats from game
+    if "today_1" in teams[teamcode].keys():
+        boxurl = BOXSCORE.replace('/_directory_/', teams[teamcode]['today_1'])
+        result1 = apifuncs.get_today_stats(boxurl,
+                                           teams[teamcode]['today_opp'][:2],
+                                           playercode)
+
+    # if a double header is scheduled, get stats from that game too
+    if "today_2" in teams[teamcode].keys():
+        boxurl = BOXSCORE.replace('/_directory_/', teams[teamcode]['today_2'])
+        result2 = apifuncs.get_today_stats(teams[teamcode]['today_2'],
+                                           teams[teamcode]['today_opp'][:2],
+                                           playercode)
+
+    # add stats together from both games though there is usually only one
+    result = apifuncs.add_todays_results(result1,
+                                         result2,
+                                         playercode,
+                                         players[playercode]['full_name'],
+                                         players[playercode]['position'],
+                                         teams[teamcode]['club_short'])
 
     # convert dictionary result to a string and return
     result_str = json.dumps(result)
