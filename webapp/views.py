@@ -134,6 +134,7 @@ def playerstats(teamcode=None, lastname=None, displastname=False):
         form.playercode.data = playercode
         if len(batters) == 0 and len(pitchers) == 0:
             flashmsg = playercode + ' has not played yet today'
+            errors = True
         else:
             flashmsg = 'Stats from games played today'
         flash(flashmsg)
