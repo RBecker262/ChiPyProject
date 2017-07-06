@@ -155,14 +155,14 @@ def get_today_stats(box_url, homeaway, playercode):
         # match batting dictionary list item with player home or away value
         if box['batting'][x]['team_flag'] == loc:
             for p in range(0, len(box['batting'][x]['batter'])):
-                if box['batting'][x]['batter'][p]['name'] == playercode:
+                if str(box['batting'][x]['batter'][p]['name']) == playercode:
                     playerdata.update({"batting":
                                        box['batting'][x]['batter'][p]})
 
         # match pitching dictionary list item with player home or away value
         if box['pitching'][x]['team_flag'] == loc:
             for p in range(0, len(box['pitching'][x]['pitcher'])):
-                if box['pitching'][x]['pitcher'][p]['name'] == playercode:
+                if str(box['pitching'][x]['pitcher'][p]['name']) == playercode:
                     playerdata.update({"pitching":
                                        box['pitching'][x]['pitcher'][p]})
 
