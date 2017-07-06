@@ -136,37 +136,39 @@ def get_today_stats(box_url, homeaway, playercode):
     find him in batting and/or pitching subdictionaries and save stats
     """
 
-    playerdata = {}
+    stats = {}
 
     try:
         box_dict = load_dictionary_from_url(box_url)
-        box = box_dict['data']['boxscore']
+        batting = box_dict['data']['boxscore']['batting']
+        pitching = box_dict['data']['boxscore']['pitching']
     except Exception:
-        return playerdata
+        return stats
 
     if homeaway == 'vs':
         loc = 'home'
     else:
         loc = 'away'
 
-    # loop twice, once for each team, player is either home or away
-    for x in range(0, 1):
+    for x in range(0, 2):
 
         # match batting dictionary list item with player home or away value
-        if box['batting'][x]['team_flag'] == loc:
-            for p in range(0, len(box['batting'][x]['batter'])):
-                if str(box['batting'][x]['batter'][p]['name']) == playercode:
-                    playerdata.update({"batting":
-                                       box['batting'][x]['batter'][p]})
+        if batting[x]['team_flag'] == loc:
+            for p in range(0, len(batting[x]['batter'])):
+                if batting[x]['batter'][p]['name'] == playercode:
+                    stats.update({"batting": batting[x]['batter'][p]})
 
         # match pitching dictionary list item with player home or away value
-        if box['pitching'][x]['team_flag'] == loc:
-            for p in range(0, len(box['pitching'][x]['pitcher'])):
-                if str(box['pitching'][x]['pitcher'][p]['name']) == playercode:
-                    playerdata.update({"pitching":
-                                       box['pitching'][x]['pitcher'][p]})
+        if pitching[x]['team_flag'] == loc:
+            if isinstance(pitching[x]['pitcher'], dict):
+                if pitching[x]['pitcher']['name'] == playercode:
+                    stats.update({"pitching": pitching[x]['pitcher'][p]})
+            else:
+                for p in range(0, len(pitching[x]['pitcher'])):
+                    if pitching[x]['pitcher'][p]['name'] == playercode:
+                        stats.update({"pitching": pitching[x]['pitcher'][p]})
 
-    return playerdata
+    return stats
 
 
 def add_todays_results(result1, result2, playercode, fullname, pos, clubname):
