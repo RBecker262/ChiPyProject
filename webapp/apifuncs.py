@@ -30,7 +30,7 @@ def load_dictionary_from_url(dict_url):
     return dictload
 
 
-def get_season_stats(api_url):
+def get_player_stats(api_url):
     """
     :param api_url: specific url used to get player stats
 
