@@ -132,7 +132,11 @@ def playerstats(teamcode=None, lastname=None, displastname=False):
         avg_ab = 'AB'
         ip_outs = 'Outs'
         form.playercode.data = playercode
-        flash('Stats from games played today')
+        if len(batters) == 0 and len(pitchers) == 0:
+            flashmsg = playercode + ' has not played yet today'
+        else:
+            flashmsg = 'Stats from games played today'
+        flash(flashmsg)
 
     else:
         # partial name field updated, if valid (len > 0) call lastname api
