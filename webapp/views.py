@@ -6,13 +6,11 @@ from .forms import HomeForm, AboutForm, ByLastNameForm, ByTeamForm
 from .forms import PlayerStatsForm, WatchListForm, VanAllanEffectForm
 from webapp import apifuncs
 
-# DATA_FOLDER = '/usr/tmp/data/'
-DATA_FOLDER = '../Data/'
+DATA_FOLDER = '/usr/tmp/data/'
 TEAM_MSTR_I = DATA_FOLDER + 'teamMaster.json'
 PLYR_MSTR_I = DATA_FOLDER + 'playerMaster.json'
 BOXSCORE = 'http://gd2.mlb.com/_directory_/boxscore.json'
-# API_SERVER = '://thesandlot-env.aquapjmcqz.us-east-2.elasticbeanstalk.com'
-API_SERVER = 'http://127.0.0.1:5000'
+API_SERVER = 'http://thesandlot-env.aquapjmcqz.us-east-2.elasticbeanstalk.com'
 
 
 @webapp.route('/')
