@@ -266,6 +266,8 @@ def add_todays_batting(result1, result2, playercode, fullname, pos, clubname):
                     "runs": runs,
                     "walks": bwalks,
                     "code": playercode}}
+    else:
+        batting = {}
 
     return batting
 
@@ -350,5 +352,7 @@ def add_todays_pitching(result1, result2, playercode, fullname, clubname):
                      "walks": pwalks,
                      "saves": saves,
                      "code": playercode}}
+    else:
+        pitching = {}
 
     return pitching
