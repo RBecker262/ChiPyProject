@@ -11,10 +11,10 @@
     <form action="" method="post" name="byteam" style="width:65%;">
       <table id="BT" class="center" style="width:100%">
         <tr style="font-size:20px;">
-          <th width="28%" style="text-align:center;">Team</th>
-          <th width="15%" style="text-align:center;">Record</th>
-          <th width="33%" style="text-align:center;">Today's Opponent</th>
-          <th width="28%" style="text-align:center;">Game Time</th>
+          <th width="28%" style="text-align:center;"><u>Team</u></th>
+          <th width="15%" style="text-align:center;"><u>Record</u></th>
+          <th width="33%" style="text-align:center;"><u>Today's Opponent</u></th>
+          <th width="28%" style="text-align:center;"><u>Game Time</u></th>
         </tr>
         {% for team in teams %}
           <tr class="clickable" onclick="postForm(this, {{teams}})" style="font-size:18px;">
