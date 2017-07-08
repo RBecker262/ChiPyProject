@@ -93,7 +93,7 @@ def playerstats(teamcode=None, lastname=None, displastname=False):
     :param displastname: used in HTML to control display of Last Name field
 
     this handles all possible ways of displaying player stats, season and today
-    season stats are display by clicking on a team or entering partial last name
+    season stats display by clicking on a team or entering partial last name
     if coming here from search by team the Last Name field is not displayed
     if coming here from search by last name then Last Name field is displayed
     boolean variable errors controls font color to use for any flash messages
