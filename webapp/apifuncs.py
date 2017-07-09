@@ -162,7 +162,7 @@ def get_today_stats(box_url, homeaway, playercode):
         if pitching[x]['team_flag'] == loc:
             if isinstance(pitching[x]['pitcher'], dict):
                 if pitching[x]['pitcher']['name'] == playercode:
-                    stats.update({"pitching": pitching[x]['pitcher'][p]})
+                    stats.update({"pitching": pitching[x]['pitcher']})
             else:
                 for p in range(0, len(pitching[x]['pitcher'])):
                     if pitching[x]['pitcher'][p]['name'] == playercode:
