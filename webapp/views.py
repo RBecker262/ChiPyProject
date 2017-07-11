@@ -23,7 +23,11 @@ def thesandlot():
 
     form = HomeForm()
     flash("Welcome to Rob's Sandlot!")
-    return render_template("base.html", title='Home', form=form, errors=False)
+    return render_template("base.html",
+                           title='Home',
+                           form=form,
+                           errors=False,
+                           dispflash=True)
 
 
 @webapp.route('/ByTeam', methods=['GET', 'POST'])
@@ -50,7 +54,11 @@ def byteam():
         teams.append(loaded[key])
 
     flash('Click on row to view team roster / stats')
-    return render_template("byteam.html", form=form, teams=teams, errors=False)
+    return render_template("byteam.html",
+                           form=form,
+                           teams=teams,
+                           errors=False,
+                           dispflash=True)
 
 
 @webapp.route('/ByLastName', methods=['GET', 'POST'])
@@ -82,7 +90,8 @@ def bylastname():
     return render_template("base.html",
                            form=form,
                            displastname=True,
-                           errors=errors)
+                           errors=errors,
+                           dispflash=True)
 
 
 @webapp.route('/PlayerStats', methods=['GET', 'POST'])
@@ -183,7 +192,8 @@ def playerstats(teamcode=None, lastname=None, displastname=False):
                            displastname=displastname,
                            errors=errors,
                            avgab=avg_ab,
-                           ipouts=ip_outs)
+                           ipouts=ip_outs,
+                           dispflash=True)
 
 
 @webapp.route('/WatchList')
@@ -197,7 +207,8 @@ def watchlist():
     return render_template("watchlist.html",
                            form=form,
                            displastname=False,
-                           errors=False)
+                           errors=False,
+                           dispflash=True)
 
 
 @webapp.route('/VanAllanEffect')
@@ -211,7 +222,8 @@ def vanallaneffect():
     return render_template("vanallaneffect.html",
                            form=form,
                            displastname=False,
-                           errors=True)
+                           errors=True,
+                           dispflash=True)
 
 
 @webapp.route('/About')
@@ -221,11 +233,11 @@ def about():
     """
 
     form = AboutForm()
-    flash('Say something nice about Allan, ChiPy, and what I learned')
     return render_template("about.html",
                            form=form,
                            displastname=False,
-                           errors=False)
+                           errors=False,
+                           dispflash=False)
 
 ###############################################################################
 #

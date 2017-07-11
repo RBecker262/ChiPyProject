@@ -111,24 +111,30 @@
       <button class="button buttonh" onclick="location.href='/VanAllanEffect';">Van Allan Effect</button>
       <button class="button buttonh" onclick="location.href='/About';">About</button>
     </p>
-    <form action="" method="post">
-      {% with messages = get_flashed_messages() %}
-        {% if errors %}
-          <span class="spanred">{{ messages[0] }}</span>
-        {% else %}
-          <span class="spangreen">{{ messages[0] }}</span>
+    {% if dispflash %}
+      <form action="" method="post">
+        {% with messages = get_flashed_messages() %}
+          {% if errors %}
+            <span class="spanred">{{ messages[0] }}</span>
+          {% else %}
+            <span class="spangreen">{{ messages[0] }}</span>
+          {% endif %}
+        {% endwith %}
+        {% if displastname %}
+          <span class="name_in">&nbsp;{{ form.lastname }}&nbsp;</span>
+          <input type="submit" class="search" value="Search Names"/>
         {% endif %}
-      {% endwith %}
-      {% if displastname %}
-        <span class="name_in">&nbsp;{{ form.lastname }}&nbsp;</span>
-        <input type="submit" class="search" value="Search Names"/>
-      {% endif %}
-      <span style="visibility:collapse;">{{ form.displastname }}</span>
-    </form>
-    <hr>
+        <span style="visibility:collapse;">{{ form.displastname }}</span>
+      </form>
+      <hr>
+    {% endif %}
   </div>
-  <div class="Container">
-    {% block content %}{% endblock %}
-  </div>
+  {% if dispflash %}
+    <div class="Container">
+  {% else %}
+    <div>
+  {% endif %}
+      {% block content %}{% endblock %}
+    </div>
   </body>
 </html>
