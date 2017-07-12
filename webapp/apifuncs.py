@@ -250,7 +250,7 @@ def add_todays_batting(result1, result2, playercode, fullname, pos, clubname):
     if 'batting' in result1.keys():
         game_stats = collate_stats(result1, game_stats)
     if 'batting' in result2.keys():
-        game_stats = collate_stats(result1, game_stats)
+        game_stats = collate_stats(result2, game_stats)
 
     # if all stats added together are at least 1 then player batted today
     # if all stats added together = 0 then he did not bat
