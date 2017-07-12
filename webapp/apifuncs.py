@@ -211,14 +211,20 @@ stat_translation = {
     'ab': 'avg'
 }
 
+
 def collate_stats(stats, day_stats):
-    
+    """
+    :param stats:     player stats for a game
+    :param day_stats: accumulated stats for a day to which to add
+
+    add a player-game stats to a running total for a day
+    """
+
     for stat in ['h', 'bb', 'hr', 'rbi', 'r', 'ab']:
         if stat in stats['batting'].keys():
             day_stats[stat_translation[stat]] += int(
                 stats['batting'][stat])
     return day_stats
-   
 
 
 def add_todays_batting(result1, result2, playercode, fullname, pos, clubname):
@@ -248,7 +254,12 @@ def add_todays_batting(result1, result2, playercode, fullname, pos, clubname):
 
     # if all stats added together are at least 1 then player batted today
     # if all stats added together = 0 then he did not bat
-    if (game_stats['bhits'] + game_stats['bwalks'] + game_stats['hr'] + game_stats['rbi'] + game_stats['runs'] + game_stats['avg']) > 0:
+    if (game_stats['bhits'] +
+            game_stats['bwalks'] +
+            game_stats['hr'] +
+            game_stats['rbi'] +
+            game_stats['runs'] +
+            game_stats['avg']) > 0:
         batting = {playercode:
                    {"name": fullname,
                     "team": clubname,
