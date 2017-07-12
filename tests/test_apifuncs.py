@@ -3,6 +3,12 @@ import unittest
 
 from webapp import apifuncs
 
+# README
+# Execute these with
+#
+# $ python -m unittest
+
+
 BRYANT_RESULT1 = {
     'batting': {
         'a': '0',
