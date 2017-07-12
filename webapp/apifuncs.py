@@ -224,7 +224,7 @@ def collate_stats(stats, day_stats):
 def add_todays_batting(result1, result2, playercode, fullname, pos, clubname):
     """
     :param result1:    player stats from game1 (if he played)
-    :param result2:    dict of player stats from game2 (if he played)
+    :param result2:    player stats from game2 (if he played)
     :param playercode: player key to player master
     :param fullname:   player full name
     :param pos:        position played
