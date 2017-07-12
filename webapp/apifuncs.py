@@ -202,6 +202,31 @@ def add_todays_results(result1, result2, playercode, fullname, pos, clubname):
     return result
 
 
+stat_translation = {
+    'h': 'bhits',
+    'bb': 'bwalks',
+    'hr': 'hr',
+    'rbi': 'rbi',
+    'r': 'runs',
+    'ab': 'avg'
+}
+
+
+def collate_stats(stats, day_stats):
+    """
+    :param stats:     player stats for a game
+    :param day_stats: accumulated stats for a day to which to add
+
+    add a player-game stats to a running total for a day
+    """
+
+    for stat in ['h', 'bb', 'hr', 'rbi', 'r', 'ab']:
+        if stat in stats['batting'].keys():
+            day_stats[stat_translation[stat]] += int(
+                stats['batting'][stat])
+    return day_stats
+
+
 def add_todays_batting(result1, result2, playercode, fullname, pos, clubname):
     """
     :param result1:    player stats from game1 (if he played)
@@ -215,59 +240,36 @@ def add_todays_batting(result1, result2, playercode, fullname, pos, clubname):
     """
 
     # set initial values to have a basis for doing math
-    bhits = 0
-    bwalks = 0
-    hr = 0
-    rbi = 0
-    runs = 0
-    avg = 0
+    game_stats = {}
+    for stat in ['bhits', 'bwalks', 'hr', 'rbi', 'runs', 'avg']:
+        game_stats[stat] = 0
 
     # for each batting stat found update the associated variable
     # avg is field name in html but for todays stats will hold At Bats instead
     # column heading will reflect AVG or AB based on which stats are displayed
     if 'batting' in result1.keys():
-        keylist = result1['batting'].keys()
-        if 'h' in keylist:
-            bhits += int(result1['batting']['h'])
-        if 'bb' in keylist:
-            bwalks += int(result1['batting']['bb'])
-        if 'hr' in keylist:
-            hr += int(result1['batting']['hr'])
-        if 'rbi' in keylist:
-            rbi += int(result1['batting']['rbi'])
-        if 'r' in keylist:
-            runs += int(result1['batting']['r'])
-        if 'ab' in keylist:
-            avg += int(result1['batting']['ab'])
-
+        game_stats = collate_stats(result1, game_stats)
     if 'batting' in result2.keys():
-        keylist = result2['batting'].keys()
-        if 'h' in keylist:
-            bhits += int(result2['batting']['h'])
-        if 'bb' in keylist:
-            bwalks += int(result2['batting']['bb'])
-        if 'hr' in keylist:
-            hr += int(result2['batting']['hr'])
-        if 'rbi' in keylist:
-            rbi += int(result2['batting']['rbi'])
-        if 'r' in keylist:
-            runs += int(result2['batting']['r'])
-        if 'ab' in keylist:
-            avg += int(result2['batting']['ab'])
+        game_stats = collate_stats(result2, game_stats)
 
     # if all stats added together are at least 1 then player batted today
     # if all stats added together = 0 then he did not bat
-    if (bhits + bwalks + hr + rbi + runs + avg) > 0:
+    if (game_stats['bhits'] +
+            game_stats['bwalks'] +
+            game_stats['hr'] +
+            game_stats['rbi'] +
+            game_stats['runs'] +
+            game_stats['avg']) > 0:
         batting = {playercode:
                    {"name": fullname,
                     "team": clubname,
                     "pos": pos,
-                    "avg": avg,
-                    "hits": bhits,
-                    "hr": hr,
-                    "rbi": rbi,
-                    "runs": runs,
-                    "walks": bwalks,
+                    "avg": game_stats['avg'],
+                    "hits": game_stats['bhits'],
+                    "hr": game_stats['hr'],
+                    "rbi": game_stats['rbi'],
+                    "runs": game_stats['runs'],
+                    "walks": game_stats['bwalks'],
                     "code": playercode}}
     else:
         batting = {}
