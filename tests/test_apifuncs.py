@@ -59,7 +59,7 @@ BRYANT_TODAYS_BATTING = {
         'walks': 0,
         'name': 'Kris Bryant',
         'runs': 0,
-        'avg': 8,
+        'avg': 4,
         'pos': '3B',
         'hits': 0
     }

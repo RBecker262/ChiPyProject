@@ -243,7 +243,7 @@ def add_todays_batting(result1, result2, playercode, fullname, pos, clubname):
     # column heading will reflect AVG or AB based on which stats are displayed
     if 'batting' in result1.keys():
         game_stats = collate_stats(result1, game_stats)
-    if 'batting' in result1.keys():
+    if 'batting' in result2.keys():
         game_stats = collate_stats(result1, game_stats)
 
     # if all stats added together are at least 1 then player batted today
