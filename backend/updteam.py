@@ -181,6 +181,7 @@ def update_entry_for_game_1(sched_dict, mstr_dict, box_lev_3, homeaway, team):
              {'club_name': box_lev_3[homeaway + '_fname'],
               'club_short': teamname,
               'record': rec,
+              'today_home_away': homeaway,
               'today_1': game_dir,
               'today_1_time': gametime,
               'today_opp': opp,

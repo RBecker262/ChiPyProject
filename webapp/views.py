@@ -409,14 +409,14 @@ def api_v1_boxscore_player(playercode):
     if "today_1" in teams[teamcode].keys():
         boxurl = BOXSCORE.replace('/_directory_/', teams[teamcode]['today_1'])
         result1 = apifuncs.get_today_stats(boxurl,
-                                           teams[teamcode]['today_opp'][:2],
+                                           teams[teamcode]['today_home_away'],
                                            playercode)
 
     # if a double header is scheduled, get stats from that game too
     if "today_2" in teams[teamcode].keys():
         boxurl = BOXSCORE.replace('/_directory_/', teams[teamcode]['today_2'])
         result2 = apifuncs.get_today_stats(teams[teamcode]['today_2'],
-                                           teams[teamcode]['today_opp'][:2],
+                                           teams[teamcode]['today_home_away'],
                                            playercode)
 
     # add stats together from both games though there is usually only one

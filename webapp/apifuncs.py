@@ -127,7 +127,7 @@ def get_batting_stats(plyr_data, key, team):
 def get_today_stats(box_url, homeaway, playercode):
     """
     :param box_url:     MLB url of boxscore for this game to get player data
-    :param homeaway:    vs = home, at = away
+    :param homeaway:    indicates if team is 'home' or 'away'
     :param playercode:  player code to find within boxscore
 
     load boxscore dictionary then loop thru pitching and batting sections
@@ -145,21 +145,16 @@ def get_today_stats(box_url, homeaway, playercode):
     except Exception:
         return stats
 
-    if homeaway == 'vs':
-        loc = 'home'
-    else:
-        loc = 'away'
-
     for x in range(0, 2):
 
         # match batting dictionary list item with player home or away value
-        if batting[x]['team_flag'] == loc:
+        if batting[x]['team_flag'] == homeaway:
             for p in range(0, len(batting[x]['batter'])):
                 if batting[x]['batter'][p]['name'] == playercode:
                     stats.update({"batting": batting[x]['batter'][p]})
 
         # match pitching dictionary list item with player home or away value
-        if pitching[x]['team_flag'] == loc:
+        if pitching[x]['team_flag'] == homeaway:
             if isinstance(pitching[x]['pitcher'], dict):
                 if pitching[x]['pitcher']['name'] == playercode:
                     stats.update({"pitching": pitching[x]['pitcher']})
@@ -202,28 +197,20 @@ def add_todays_results(result1, result2, playercode, fullname, pos, clubname):
     return result
 
 
-stat_translation = {
-    'h': 'bhits',
-    'bb': 'bwalks',
-    'hr': 'hr',
-    'rbi': 'rbi',
-    'r': 'runs',
-    'ab': 'avg'
-}
-
-
-def collate_stats(stats, day_stats):
+def collate_stats(stats, day_stats, stat_trans, stat_type):
     """
-    :param stats:     player stats for a game
-    :param day_stats: accumulated stats for a day to which to add
+    :param stats:      player stats entry from MLB boxscore for a game
+    :param day_stats:  accumulated stats for a day to which to add
+    :param stat_trans: translates MLB stat keys to Rob's stat keys
+    :param stat_type:  indicates 'batting' or 'pitching'
 
     add a player-game stats to a running total for a day
     """
 
-    for stat in ['h', 'bb', 'hr', 'rbi', 'r', 'ab']:
-        if stat in stats['batting'].keys():
-            day_stats[stat_translation[stat]] += int(
-                stats['batting'][stat])
+    for stat in stat_trans.keys():
+        if stat in stats[stat_type].keys():
+            day_stats[stat_trans[stat]] += int(
+                stats[stat_type][stat])
     return day_stats
 
 
@@ -239,18 +226,34 @@ def add_todays_batting(result1, result2, playercode, fullname, pos, clubname):
     add stats from each game, player might have data in both, neither or just 1
     """
 
+    # establish stat translation table from MLB's stat keys to Rob's stat keys
+    bat_translation = {
+        'h': 'bhits',
+        'bb': 'bwalks',
+        'hr': 'hr',
+        'rbi': 'rbi',
+        'r': 'runs',
+        'ab': 'avg'
+    }
+
     # set initial values to have a basis for doing math
     game_stats = {}
-    for stat in ['bhits', 'bwalks', 'hr', 'rbi', 'runs', 'avg']:
-        game_stats[stat] = 0
+    for stat in bat_translation.keys():
+        game_stats[bat_translation[stat]] = 0
 
     # for each batting stat found update the associated variable
     # avg is field name in html but for todays stats will hold At Bats instead
     # column heading will reflect AVG or AB based on which stats are displayed
     if 'batting' in result1.keys():
-        game_stats = collate_stats(result1, game_stats)
+        game_stats = collate_stats(result1,
+                                   game_stats,
+                                   bat_translation,
+                                   'batting')
     if 'batting' in result2.keys():
-        game_stats = collate_stats(result2, game_stats)
+        game_stats = collate_stats(result2,
+                                   game_stats,
+                                   bat_translation,
+                                   'batting')
 
     # if all stats added together are at least 1 then player batted today
     # if all stats added together = 0 then he did not bat
