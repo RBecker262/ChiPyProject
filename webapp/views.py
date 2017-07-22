@@ -307,14 +307,20 @@ def api_v1_players_team(teamcode):
     with open(PLYR_MSTR_I, 'r') as playerMaster:
         plyr_mstr = json.load(playerMaster)
 
+    with open(TEAM_MSTR_I, 'r') as teamMaster:
+        teams = json.load(teamMaster)
+
     # examine club code for every player to see if it matches team selected
     for key in plyr_mstr.keys():
 
         if plyr_mstr[key]['club_code'] == teamcode:
 
+            # grab team entry for player's team
+            team = teams[plyr_mstr[key]['club_code']]
+
             # player on team selected so see if he has batting statistics
             if 'stats_batting' in plyr_mstr[key]:
-                plyr = apifuncs.get_batting_stats(plyr_mstr[key], key, None)
+                plyr = apifuncs.get_batting_stats(plyr_mstr[key], key, team)
 
                 # update is conditional for pitcher, must have batting stat > 0
                 if plyr is not None:
@@ -322,7 +328,7 @@ def api_v1_players_team(teamcode):
 
             # player on team selected so see if he has pitching statistics
             if 'stats_pitching' in plyr_mstr[key]:
-                plyr = apifuncs.get_pitching_stats(plyr_mstr[key], key, None)
+                plyr = apifuncs.get_pitching_stats(plyr_mstr[key], key, team)
                 pitchers.update(plyr)
 
     # create dictionary result with a section for each, batters and pitchers

@@ -7,6 +7,7 @@ Purpose: contains all functions used by the various API's of this website
 
 import requests
 import json
+import collections
 
 
 class LoadDictionaryError(ValueError):
@@ -59,22 +60,16 @@ def get_pitching_stats(plyr_data, key, team):
     """
     :param plyr_data: player entry from player master file
     :param key:       player key used in result dictionary
-    :param team:      team master entry for player's team, or could be None
+    :param team:      team master entry for player's team
 
     formats the pitchers dictionary for player entry used in html form
     """
-
-    # team is not passed if getting players by team, so blank out team name
-    if team is not None:
-        club_short = team['club_short']
-    else:
-        club_short = ' '
 
     statkey = 'stats_pitching'
 
     pitching = {key:
                 {"name": plyr_data['full_name'],
-                 "team": club_short,
+                 "team": team['club_short'],
                  "wins": plyr_data[statkey]['wins'],
                  "era": str("{:.2f}".format(plyr_data[statkey]['era'])),
                  "er": plyr_data[statkey]['er'],
@@ -92,16 +87,10 @@ def get_batting_stats(plyr_data, key, team):
     """
     :param plyr_data: player entry from player master file
     :param key:       player key used in result dictionary
-    :param team:      team master entry for player's team, or could be None
+    :param team:      team master entry for player's team
 
     formats the batters dictionary for player entry used in html form
     """
-
-    # team is not passed if getting players by team, so blank out team name
-    if team is not None:
-        club_short = team['club_short']
-    else:
-        club_short = ' '
 
     statkey = 'stats_batting'
 
@@ -109,7 +98,7 @@ def get_batting_stats(plyr_data, key, team):
     if plyr_data['pos_type'] == 'B' or plyr_data[statkey]['avg'] > '.000':
         batting = {key:
                    {"name": plyr_data['full_name'],
-                    "team": club_short,
+                    "team": team['club_short'],
                     "pos": plyr_data['position'],
                     "avg": plyr_data[statkey]['avg'],
                     "hits": plyr_data[statkey]['hits'],
@@ -207,10 +196,14 @@ def collate_stats(stats, day_stats, stat_trans, stat_type):
     add a player-game stats to a running total for a day
     """
 
-    for stat in stat_trans.keys():
-        if stat in stats[stat_type].keys():
-            day_stats[stat_trans[stat]] += int(
-                stats[stat_type][stat])
+    for statkey in stat_trans.keys():
+        if statkey in stats[stat_type].keys():
+            if isinstance(stats[stat_type][statkey], bool):
+                if stats[stat_type][statkey]:
+                    day_stats[stat_trans[statkey]] += 1
+            else:
+                day_stats[stat_trans[statkey]] += int(
+                    stats[stat_type][statkey])
     return day_stats
 
 
@@ -257,12 +250,8 @@ def add_todays_batting(result1, result2, playercode, fullname, pos, clubname):
 
     # if all stats added together are at least 1 then player batted today
     # if all stats added together = 0 then he did not bat
-    if (game_stats['bhits'] +
-            game_stats['bwalks'] +
-            game_stats['hr'] +
-            game_stats['rbi'] +
-            game_stats['runs'] +
-            game_stats['avg']) > 0:
+    allstats = collections.Counter(game_stats)
+    if sum(allstats.values()) > 0:
         batting = {playercode:
                    {"name": fullname,
                     "team": clubname,
