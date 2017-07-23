@@ -200,7 +200,7 @@ def collate_stats(stats, day_stats, stat_trans, stat_type):
         if statkey in stats[stat_type].keys():
             if stats[stat_type][statkey] == 'true':
                 day_stats[stat_trans[statkey]] += 1
-            elif stats[stat_type][statkey] != 'false':
+            else:
                 day_stats[stat_trans[statkey]] += int(
                     stats[stat_type][statkey])
     return day_stats
@@ -280,8 +280,6 @@ def add_todays_pitching(result1, result2, playercode, fullname, clubname):
     """
 
     # establish stat translation table from MLB's stat keys to Rob's stat keys
-    # era gets calculated and not extracted from the boxscore
-    # wins and saves are boolean variables so if true 1 will be added to total
     pitch_translation = {
         'win': 'wins',
         'so': 'so',
@@ -297,38 +295,11 @@ def add_todays_pitching(result1, result2, playercode, fullname, clubname):
     for stat in pitch_translation.keys():
         game_stats[pitch_translation[stat]] = 0
 
-    # set initial values to have a basis for doing math
-    # wins = 0
-    # so = 0
-    # era = 0
-    # pwalks = 0
-    # phits = 0
-    # ip = 0
-    # er = 0
-    # saves = 0
-
     # for each pitching stat found update the associated variable
     # wins and saves are boolean variables so if true 1 will be added to total
     # innings pitched for today is counted as outs but will use same column
     # column heading will reflect Outs or IP based on which stats are displayed
     # era is calculated to 2 decimals based on outs and earned runs
-    # if 'pitching' in result1.keys():
-    #     keylist = result1['pitching'].keys()
-    #     if 'win' in keylist and result1['pitching']['win']:
-    #         wins += 1
-    #     if 'so' in keylist:
-    #         so += int(result1['pitching']['so'])
-    #     if 'bb' in keylist:
-    #         pwalks += int(result1['pitching']['bb'])
-    #     if 'h' in keylist:
-    #         phits += int(result1['pitching']['h'])
-    #     if 'out' in keylist:
-    #         ip += int(result1['pitching']['out'])
-    #     if 'er' in keylist:
-    #         er += int(result1['pitching']['er'])
-    #    if 'save' in keylist and result1['pitching']['save']:
-    #         saves += 1
-
     if 'pitching' in result1.keys():
         game_stats = collate_stats(result1,
                                    game_stats,
