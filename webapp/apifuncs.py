@@ -198,10 +198,9 @@ def collate_stats(stats, day_stats, stat_trans, stat_type):
 
     for statkey in stat_trans.keys():
         if statkey in stats[stat_type].keys():
-            if isinstance(stats[stat_type][statkey], bool):
-                if stats[stat_type][statkey]:
-                    day_stats[stat_trans[statkey]] += 1
-            else:
+            if stats[stat_type][statkey] == 'true':
+                day_stats[stat_trans[statkey]] += 1
+            elif stats[stat_type][statkey] != 'false':
                 day_stats[stat_trans[statkey]] += int(
                     stats[stat_type][statkey])
     return day_stats
