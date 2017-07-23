@@ -33,11 +33,12 @@ def load_dictionary_from_url(dict_url):
 
 def get_player_stats(api_url):
     """
-    :param api_url: specific url used to get player stats (season or today)
+    :param api_url: specific url used to get player stats (season only)
 
-    possible urls:  - /API_lastname/xxxxx   argument is partial last name
-                    - /API_teamplayers/xxx  argument is team code
-                    - /API_todaystats/xxxxx argument is player code
+    API's using this function:
+    /api/v1/players/team/xxxxx          argument is team code
+    /api/v1/players/lastname/xxxxx      argument is partial last name
+    /api/v1/boxscore/player/xxxxx       argument is player code
     """
 
     # make API call using url passed to function and load dictionary result
