@@ -187,26 +187,6 @@ def add_todays_results(result1, result2, playercode, fullname, pos, clubname):
     return result
 
 
-def collate_stats(stats, day_stats, stat_trans, stat_type):
-    """
-    :param stats:      player stats entry from MLB boxscore for a game
-    :param day_stats:  accumulated stats for a day to which to add
-    :param stat_trans: translates MLB stat keys to Rob's stat keys
-    :param stat_type:  indicates 'batting' or 'pitching'
-
-    add a player-game stats to a running total for a day
-    """
-
-    for statkey in stat_trans.keys():
-        if statkey in stats[stat_type].keys():
-            if stats[stat_type][statkey] == 'true':
-                day_stats[stat_trans[statkey]] += 1
-            else:
-                day_stats[stat_trans[statkey]] += int(
-                    stats[stat_type][statkey])
-    return day_stats
-
-
 def add_todays_batting(result1, result2, playercode, fullname, pos, clubname):
     """
     :param result1:    player stats from game1 (if he played)
@@ -238,15 +218,13 @@ def add_todays_batting(result1, result2, playercode, fullname, pos, clubname):
     # avg is field name in html but for todays stats will hold At Bats instead
     # column heading will reflect AVG or AB based on which stats are displayed
     if 'batting' in result1.keys():
-        game_stats = collate_stats(result1,
+        game_stats = collate_stats(result1['batting'],
                                    game_stats,
-                                   bat_translation,
-                                   'batting')
+                                   bat_translation)
     if 'batting' in result2.keys():
-        game_stats = collate_stats(result2,
+        game_stats = collate_stats(result2['batting'],
                                    game_stats,
-                                   bat_translation,
-                                   'batting')
+                                   bat_translation)
 
     # if all stats added together are at least 1 then player batted today
     # if all stats added together = 0 then he did not bat
@@ -302,15 +280,14 @@ def add_todays_pitching(result1, result2, playercode, fullname, clubname):
     # column heading will reflect Outs or IP based on which stats are displayed
     # era is calculated to 2 decimals based on outs and earned runs
     if 'pitching' in result1.keys():
-        game_stats = collate_stats(result1,
+        game_stats = collate_stats(result1['pitching'],
                                    game_stats,
-                                   pitch_translation,
-                                   'pitching')
+                                   pitch_translation)
+
     if 'pitching' in result2.keys():
-        game_stats = collate_stats(result2,
+        game_stats = collate_stats(result2['pitching'],
                                    game_stats,
-                                   pitch_translation,
-                                   'pitching')
+                                   pitch_translation)
 
     if game_stats['ip'] > 0:
         ert = (27 / game_stats['ip']) * game_stats['er']
@@ -336,3 +313,23 @@ def add_todays_pitching(result1, result2, playercode, fullname, clubname):
         pitching = {}
 
     return pitching
+
+
+def collate_stats(stats, day_stats, stat_trans):
+    """
+    :param stats:      batting or pitching entry from MLB boxscore for 1 game
+    :param day_stats:  accumulated stats for a day to which to add
+    :param stat_trans: translates MLB stat keys to Rob's stat keys
+
+    add a player-game stats to a running total for a day
+    """
+
+    for statkey in stat_trans.keys():
+        if statkey in stats.keys():
+            if stats[statkey] == 'true':
+                day_stats[stat_trans[statkey]] += 1
+            else:
+                day_stats[stat_trans[statkey]] += int(
+                    stats[statkey])
+
+    return day_stats
